@@ -19,6 +19,7 @@ export * from "./services/brand-theme";
 export * from "./services/reference-images";
 export * from "./services/post-media";
 export * from "./services/prefs";
+export * from "./services/carousels";
 export * from "./services/style-profile";
 export * from "./services/style-extract";
 export * from "./services/linkedin-export";
