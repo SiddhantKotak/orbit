@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, memo, Suspense } from "react";
-import { collapseToolRuns, stripCitations, parseProposal, type ChatUIMessage, type Proposal } from "@brandloop/agent/client";
+import { collapseToolRuns, parseOptionsPanel, stripCitations, parseProposal, type ChatUIMessage, type Proposal } from "@brandloop/agent/client";
 import type { EditVisualOutput, ProposeVisualOutput, SuggestVisualsOutput } from "@brandloop/agent";
 import { cn } from "@brandloop/ui";
 import { AnalysisCard, analysisOf } from "./analysis-card";
@@ -45,7 +45,7 @@ const isToolPart = (p: { type: string }) => p.type.startsWith("tool-") || p.type
  * An assistant message's parts: markdown text, every run of tool calls folded into "Worked through N steps"
  * (decision D6), then the post card, edit proposals and memory confirmations.
  */
-export function MessageParts({ message, streaming }: { message: ChatUIMessage; streaming: boolean }) {
+export function MessageParts({ message, streaming, optionAnswer = null }: { message: ChatUIMessage; streaming: boolean; optionAnswer?: string | null }) {
   const visible = (message.parts as Part[]).filter(
     (p) => p.type === "text" || p.type === "step-start" || isToolPart(p),
   );
@@ -66,6 +66,10 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
     return checks ? [{ key: p.toolCallId ?? String(i), checks }] : [];
   });
   const hookSets = hookCardsOf(message.parts as ToolPartLike[]);
+  const pickers = (message.parts as ToolPartLike[]).flatMap((p) => {
+    const panel = parseOptionsPanel(p as { type: string; state?: string; toolCallId?: string; output?: unknown });
+    return panel ? [panel] : [];
+  });
   const analyses = (message.parts as ToolPartLike[]).flatMap((p) => {
     const a = analysisOf(p);
     return a ? [a] : [];
@@ -83,6 +87,18 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
         }
         return null;
       })}
+      {pickers.map((panel) => (
+        <div key={panel.pickerToolCallId} className="flex flex-col gap-2" data-options-summary={optionAnswer !== null ? "" : undefined}>
+          {panel.preamble && <TextBlock text={panel.preamble} streaming={false} />}
+          {optionAnswer !== null && (
+            <p className="text-[13px] leading-[1.5] text-text-3">
+              Q: {panel.question}
+              <br />
+              A: {optionAnswer}
+            </p>
+          )}
+        </div>
+      ))}
       {draft && <DraftCard fallback={draft} />}
       {analyses.map((a, i) => (
         <AnalysisCard key={i} analysis={a} />

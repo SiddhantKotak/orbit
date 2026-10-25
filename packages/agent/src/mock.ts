@@ -178,7 +178,7 @@ function route(opts: CallOptions): ScriptStep {
   }
   const last = results.at(-1);
   if (last) {
-    if (last.toolName === "createDocument" && systemText(opts.prompt).includes("<picked_angle>")) {
+    if (last.toolName === "createDocument" && systemText(opts.prompt).includes("<picked_angle>\nQuestion asked:")) {
       return { text: "Here's your first draft. What would you like to improve?" };
     }
     if (last.toolName === "delegateWriting" && /\[e2e:needs-facts\]/.test(text)) {
@@ -189,7 +189,7 @@ function route(opts: CallOptions): ScriptStep {
     }
     return { text: AFTER_TOOL[last.toolName] ?? "Done." };
   }
-  const angle = systemText(opts.prompt).includes("<picked_angle>");
+  const angle = systemText(opts.prompt).includes("<picked_angle>\nQuestion asked:");
   const openLine = openDocumentFirstLine(opts.prompt);
   if (angle && has.has("delegateWriting") && !openLine) {
     const brief = /Writing brief for this angle:\n([\s\S]*?)\n<\/picked_angle>/.exec(systemText(opts.prompt))?.[1] ?? text;
