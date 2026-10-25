@@ -130,7 +130,7 @@ function toolErrorText(err: unknown): string | null {
 }
 
 /** Our tools report expected failures as strings; anything they throw is tagged so the stream can tell it from a model failure. */
-function tagToolErrors<T extends Record<string, unknown>>(tools: T): T {
+export function tagToolErrors<T extends Record<string, unknown>>(tools: T): T {
   const out: Record<string, unknown> = {};
   for (const [name, t] of Object.entries(tools)) {
     const exec = (t as { execute?: (...a: unknown[]) => unknown }).execute;
@@ -501,8 +501,9 @@ export async function runChatTurn(
         provider: deps.research ?? null,
         brief: null,
         calls: 0,
-        // The first step must research when the web is on, a provider exists and the request is about current events.
-        required: Boolean(deps.research) && body.webSearchEnabled && isTimely(userText).timely,
+        // The first step must research when the web is on, a provider exists and the request is about current events. An
+        // angle pick is not: its label can say "this week" without the post needing news.
+        required: Boolean(deps.research) && body.webSearchEnabled && !resolveOptionPick(stored, body.optionPick) && isTimely(userText).timely,
       },
       deadline: new Date(Date.now() + (deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)),
     };

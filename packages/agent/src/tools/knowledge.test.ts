@@ -1,3 +1,4 @@
+import { fakeResearchProvider } from "../mock";
 import { fakeEmbedder } from "@brandloop/ai/testing";
 import { createKnowledge, prisma, replaceChunks } from "@brandloop/db";
 import { tool } from "ai";
@@ -131,13 +132,16 @@ describe("buildTools", () => {
     ]);
   });
 
-  it("includes web_search only when enabled and provided", async () => {
+  it("offers researchTopic (never the provider's web_search) only when web search is on and a provider exists", async () => {
     const fakeTool = tool({ description: "x", inputSchema: z.object({}), execute: async () => "" });
-    expect(
-      Object.keys(buildTools(await testContext({ selections: { ...sel, webSearchEnabled: false } }), { webSearchTool: fakeTool })),
-    ).not.toContain("web_search");
-    expect(Object.keys(buildTools(await testContext(), { webSearchTool: fakeTool }))).toContain("web_search");
-    expect(Object.keys(buildTools(await testContext()))).not.toContain("web_search");
+    const provider = fakeResearchProvider();
+    const names = async (over: Parameters<typeof testContext>[0]) => Object.keys(buildTools(await testContext(over), { webSearchTool: fakeTool }));
+    const off = await names({ selections: { ...sel, webSearchEnabled: false }, research: { provider, brief: null, calls: 0, required: false } });
+    expect(off).not.toContain("researchTopic");
+    const on = await names({ research: { provider, brief: null, calls: 0, required: false } });
+    expect(on).toContain("researchTopic");
+    expect(on).not.toContain("web_search");
+    expect(await names({})).not.toContain("researchTopic");
   });
 
   it("getContentStrategy explains a missing strategy", async () => {

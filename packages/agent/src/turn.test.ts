@@ -18,7 +18,8 @@ import { z } from "zod";
 import { SCRIPTED_DRAFT, scriptedAi, scriptedModel } from "./mock";
 import { createRunRegistry } from "./registry";
 import { cleanup, fakeAi, testProfile } from "./test/fixtures";
-import { chatError, runChatTurn, type ChatDeps } from "./turn";
+import { chatError, runChatTurn, tagToolErrors, type ChatDeps } from "./turn";
+import type { ResearchProvider } from "./research/provider";
 import type { ChatRequestBody } from "./types";
 
 let p: string;
@@ -174,24 +175,24 @@ describe("runChatTurn", () => {
   });
 
   it("stop during a slow tool rewrites its part to the stopped-step error", async () => {
-    const slow = tool({
-      description: "slow",
-      inputSchema: z.object({}),
-      execute: async () => {
-        await new Promise((r) => setTimeout(r, 400));
-        return "late";
-      },
-    });
-    const model = scriptedModel([{ toolCalls: [{ toolName: "web_search", input: {} }] }, { text: "never" }]);
+    const slow: ResearchProvider = {
+      id: "fake",
+      search: (_q, signal) =>
+        new Promise((resolve, reject) => {
+          const t = setTimeout(() => resolve({ answer: "late", citations: [] }), 2_000);
+          signal.addEventListener("abort", () => (clearTimeout(t), reject(signal.reason)), { once: true });
+        }),
+    };
+    const model = scriptedModel([{ toolCalls: [{ toolName: "researchTopic", input: { query: "look it up", window: null, site: null } }] }, { text: "never" }]);
     const reg = createRunRegistry();
     const b = { ...body("look it up", { runId: "run-slow" }), webSearchEnabled: true };
-    const res = await runChatTurn(deps(model, { registry: reg, webSearchTool: slow }), caller, b);
-    setTimeout(() => reg.abort(chatId, "run-slow"), 100);
+    const res = await runChatTurn(deps(model, { registry: reg, research: slow }), caller, b);
+    setTimeout(() => reg.abort(chatId, "run-slow"), 300);
     await res.text().catch(() => {});
     await settle();
     const last = (await listMessages(p, chatId)).at(-1)!;
     expect((last.context as any).finish).toBe("aborted");
-    expect(parts(last).find((x) => x.type === "tool-web_search")).toMatchObject({
+    expect(parts(last).find((x) => x.type === "tool-researchTopic")).toMatchObject({
       state: "output-error",
       errorText: "This step stopped before it completed.",
     });
@@ -403,7 +404,7 @@ describe("runChatTurn fix round 1", () => {
     expect(parts(last).some((x) => x.type === "text" && x.text === "Can't do that.")).toBe(true);
   });
 
-  it("a tool that throws becomes a safe step error and the turn still finishes", async () => {
+  it("a tool that throws becomes a safe step error that never leaks the cause", async () => {
     const boom = tool({
       description: "boom",
       inputSchema: z.object({}),
@@ -411,16 +412,11 @@ describe("runChatTurn fix round 1", () => {
         throw new Error("connection string postgres://secret@host");
       },
     });
-    const model = scriptedModel([{ toolCalls: [{ toolName: "web_search", input: {} }] }, { text: "Recovered." }]);
-    const b = { ...body("search"), webSearchEnabled: true };
-    await (await runChatTurn(deps(model, { webSearchTool: boom }), caller, b)).text();
-    await settle();
-    const last = (await listMessages(p, chatId)).at(-1)!;
-    expect((last.context as any).finish).toBe("stop");
-    const part = parts(last).find((x) => x.type === "tool-web_search")!;
-    expect(part.state).toBe("output-error");
-    expect(String(part.errorText)).toContain("web_search");
-    expect(String(part.errorText)).not.toContain("secret");
+    const tagged = tagToolErrors({ boom }) as unknown as { boom: { execute: (i: unknown, o: unknown) => Promise<unknown> } };
+    const err = await tagged.boom.execute({}, { toolCallId: "c", messages: [] }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(String((err as Error).message)).toContain("boom");
+    expect(String((err as Error).message)).not.toContain("secret");
   });
 
   it("a turn past its deadline is saved as aborted, without logging an error", async () => {

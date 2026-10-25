@@ -442,7 +442,7 @@ function mockNormalized(prompt: string): { items: unknown[] } | null {
   return {
     items: [
       { published: end, eventDate: null, claim: "Northwind Labs released a smaller, cheaper model for small teams.", url: FAKE_CITATIONS[0]!.url, publisher: "Northwind Labs", role: "primary" },
-      { published: addDays(end, -1), eventDate: null, claim: "Harbor Cloud changed its entry pricing.", url: FAKE_CITATIONS[1]!.url, publisher: "Harbor Cloud", role: "primary" },
+      { published: addDays(end, -1) < start ? start : addDays(end, -1), eventDate: null, claim: "Harbor Cloud changed its entry pricing.", url: FAKE_CITATIONS[1]!.url, publisher: "Harbor Cloud", role: "primary" },
       { published: addDays(start, -4), eventDate: null, claim: "Quill Software summarised last month's launches.", url: FAKE_CITATIONS[2]!.url, publisher: "Quill Software", role: "corroboration" },
       { published: end, eventDate: null, claim: "An unconfirmed rumour about a merger.", url: "https://invented.example/rumour", publisher: "Unknown", role: "primary" },
     ],

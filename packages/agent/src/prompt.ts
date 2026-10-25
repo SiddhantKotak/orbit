@@ -198,7 +198,7 @@ export async function loadPromptInput(ctx: TurnContext, activeTask: ActiveTask |
       knowledge,
       webSearchEnabled: ctx.selections.webSearchEnabled,
       quickLinkKey: ctx.selections.quickLinkKey,
-      timelyBlocked: !ctx.selections.webSearchEnabled && isTimely(ctx.userText).timely,
+      timelyBlocked: !ctx.selections.webSearchEnabled && !ctx.pickedAngle && isTimely(ctx.userText).timely,
     },
     document: ctx.documentRef.current,
     pickedAngle: ctx.pickedAngle ?? null,
