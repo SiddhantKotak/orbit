@@ -373,11 +373,15 @@ test("drafts a post: streams into the side panel, edits with versions, conflicts
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible({ timeout: 30_000 });
   await expect(userNotes(page)).toHaveCount(notes);
 
-  // Restore v1 from the list: a new version 6 with the original text.
+  // Switch to v1 from the list: it becomes current at once, with no new version and no toast.
   await panel.getByRole("radio", { name: "5 versions" }).click();
-  await panel.getByRole("button", { name: "Restore version 1" }).click();
-  await expect(page.getByText("Restored version 1 as version 6.")).toBeVisible();
+  await panel.getByRole("button", { name: "Switch to version 1" }).click();
   await expect(panel.locator("[data-post-text]")).toContainText(DRAFT_LAST);
+  await expect(panel.locator("[data-version-label]")).toContainText("Version 1");
+  await panel.getByRole("radio", { name: "5 versions" }).click();
+  await expect(panel.locator("li[data-version]")).toHaveCount(5);
+  await expect(panel.locator('li[data-version="1"]')).toContainText("Current");
+  await panel.getByRole("radio", { name: "Post" }).click();
 
   await page.waitForTimeout(600);
   await axeCheck(page);

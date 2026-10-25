@@ -8,10 +8,12 @@ import { documentTools } from "./documents";
 import { hookTools } from "./hooks";
 import { knowledgeTools } from "./knowledge";
 import { memoryTools } from "./memory";
+import { optionTools } from "./options";
 import { strategyTools } from "./strategy";
+import { visualTools } from "./visuals";
 
 function baseTools(ctx: TurnContext) {
-  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...analyzeTools(ctx) };
+  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...analyzeTools(ctx), ...optionTools() };
 }
 
 /**
@@ -20,7 +22,8 @@ function baseTools(ctx: TurnContext) {
  */
 export function buildTools(ctx: TurnContext, opts: { webSearchTool?: Tool | null } = {}) {
   // Web access is `researchTopic` (dated, sourced, windowed); the provider's own `web_search` is no longer given to the model.
-  const tools: ReturnType<typeof baseTools> & Partial<ReturnType<typeof researchTools>> = baseTools(ctx);
+  const tools: ReturnType<typeof baseTools> & Partial<ReturnType<typeof researchTools>> & Partial<ReturnType<typeof visualTools>> = baseTools(ctx);
+  if (ctx.visuals) Object.assign(tools, visualTools(ctx));
   if (ctx.selections.webSearchEnabled && ctx.research.provider) Object.assign(tools, researchTools(ctx));
   void opts;
   return tools;

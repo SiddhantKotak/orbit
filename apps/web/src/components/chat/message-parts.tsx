@@ -1,12 +1,14 @@
 "use client";
 
-import { lazy, Suspense } from "react";
-import { collapseToolRuns, parseProposal, type ChatUIMessage, type Proposal } from "@brandloop/agent/client";
+import { lazy, memo, Suspense } from "react";
+import { collapseToolRuns, parseOptionsPanel, stripCitations, parseProposal, type ChatUIMessage, type Proposal } from "@brandloop/agent/client";
+import type { EditVisualOutput, ProposeVisualOutput, SuggestVisualsOutput } from "@brandloop/agent";
 import { cn } from "@brandloop/ui";
 import { AnalysisCard, analysisOf } from "./analysis-card";
 import { DraftCard } from "./document-panel";
 import { HookCards, hookCardsOf } from "./hook-cards";
 import { ProposalCard } from "./proposal-card";
+import { VisualConceptCards, VisualEditStatus, VisualProposalCard } from "./visual-cards";
 import { ReviewCard, reviewChecksOf } from "./review-card";
 import { MemoryTag, memoryTagOf } from "./memory-tag";
 import { StepsDisclosure } from "./steps-disclosure";
@@ -28,13 +30,14 @@ function PlainText({ text, streaming }: { text: string; streaming: boolean }) {
   );
 }
 
-export function TextBlock({ text, streaming }: { text: string; streaming: boolean }) {
+/** Memoised on its text: a block that stopped growing isn't parsed again while later blocks stream. */
+export const TextBlock = memo(function TextBlock({ text, streaming }: { text: string; streaming: boolean }) {
   return (
     <Suspense fallback={<PlainText text={text} streaming={streaming} />}>
       <Markdown text={text} streaming={streaming} />
     </Suspense>
   );
-}
+});
 
 const isToolPart = (p: { type: string }) => p.type.startsWith("tool-") || p.type === "dynamic-tool";
 
@@ -42,7 +45,7 @@ const isToolPart = (p: { type: string }) => p.type.startsWith("tool-") || p.type
  * An assistant message's parts: markdown text, every run of tool calls folded into "Worked through N steps"
  * (decision D6), then the post card, edit proposals and memory confirmations.
  */
-export function MessageParts({ message, streaming }: { message: ChatUIMessage; streaming: boolean }) {
+export function MessageParts({ message, streaming, optionAnswer = null }: { message: ChatUIMessage; streaming: boolean; optionAnswer?: string | null }) {
   const visible = (message.parts as Part[]).filter(
     (p) => p.type === "text" || p.type === "step-start" || isToolPart(p),
   );
@@ -63,6 +66,10 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
     return checks ? [{ key: p.toolCallId ?? String(i), checks }] : [];
   });
   const hookSets = hookCardsOf(message.parts as ToolPartLike[]);
+  const pickers = (message.parts as ToolPartLike[]).flatMap((p) => {
+    const panel = parseOptionsPanel(p as { type: string; state?: string; toolCallId?: string; output?: unknown });
+    return panel ? [panel] : [];
+  });
   const analyses = (message.parts as ToolPartLike[]).flatMap((p) => {
     const a = analysisOf(p);
     return a ? [a] : [];
@@ -74,12 +81,24 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
           return <StepsDisclosure key={i} parts={(it as { parts: ToolPartLike[] }).parts} running={streaming && i === items.length - 1} />;
         }
         if (it.type === "text") {
-          const text = (it as unknown as { text: string }).text;
+          const text = stripCitations((it as unknown as { text: string }).text);
           if (!text.trim()) return null;
           return <TextBlock key={i} text={text} streaming={streaming && i === lastText && i === items.length - 1} />;
         }
         return null;
       })}
+      {pickers.map((panel) => (
+        <div key={panel.pickerToolCallId} className="flex flex-col gap-2" data-options-summary={optionAnswer !== null ? "" : undefined}>
+          {panel.preamble && <TextBlock text={panel.preamble} streaming={false} />}
+          {optionAnswer !== null && (
+            <p className="text-[13px] leading-[1.5] text-text-3">
+              Q: {panel.question}
+              <br />
+              A: {optionAnswer}
+            </p>
+          )}
+        </div>
+      ))}
       {draft && <DraftCard fallback={draft} />}
       {analyses.map((a, i) => (
         <AnalysisCard key={i} analysis={a} />
@@ -93,6 +112,9 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
       {proposals.map(({ toolCallId, proposal }) => (
         <ProposalCard key={toolCallId} toolCallId={toolCallId} proposal={proposal} />
       ))}
+      {visualCards(message.parts as Part[]).map(({ key, node }) => (
+        <div key={key}>{node}</div>
+      ))}
       {memories.map(({ key, area, change }) => (
         <MemoryTag key={key} area={area} change={change} />
       ))}
@@ -103,7 +125,7 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
 /** The reply's visible words, for Copy. */
 export function replyText(message: ChatUIMessage): string {
   return (message.parts as Part[])
-    .map((p) => (p.type === "text" ? p.text.trim() : ""))
+    .map((p) => (p.type === "text" ? stripCitations(p.text).trim() : ""))
     .filter(Boolean)
     .join("\n\n");
 }
@@ -132,6 +154,20 @@ function proposalsIn(parts: Part[]): { toolCallId: string; proposal: Proposal }[
     if (p.type !== "tool-proposeDocumentEdits" || p.state !== "output-available" || typeof p.toolCallId !== "string") continue;
     const proposal = parseProposal(p.output);
     if (proposal) out.push({ toolCallId: p.toolCallId, proposal });
+  }
+  return out;
+}
+
+
+/** Image cards from completed image tool calls, in order. Their outputs are objects on success and `Failed:` text otherwise. */
+function visualCards(parts: Part[]): { key: string; node: React.ReactNode }[] {
+  const out: { key: string; node: React.ReactNode }[] = [];
+  for (const p of parts as (ToolPartLike & { toolCallId?: string })[]) {
+    if (p.state !== "output-available" || typeof p.output !== "object" || p.output === null) continue;
+    const key = String(p.toolCallId ?? out.length);
+    if (p.type === "tool-suggestVisuals") out.push({ key, node: <VisualConceptCards output={p.output as SuggestVisualsOutput} /> });
+    else if (p.type === "tool-proposeVisual") out.push({ key, node: <VisualProposalCard output={p.output as ProposeVisualOutput} /> });
+    else if (p.type === "tool-editVisual") out.push({ key, node: <VisualEditStatus output={p.output as EditVisualOutput} /> });
   }
   return out;
 }

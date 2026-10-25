@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Dialog } from "radix-ui";
+import { SWRConfig, type SWRConfiguration } from "swr";
 import { CloseIcon } from "@brandloop/ui/icons";
 import { Grain, cn, useMediaQuery } from "@brandloop/ui";
 import { SmoothScroll } from "@brandloop/ui/scroll";
@@ -16,6 +17,12 @@ import { RouteFocus } from "./route-focus";
 import { MainSidebar, Rail, SPRINT, SectionPanel } from "./sidebar";
 
 const COLLAPSED_KEY = "brandloop:sidebar-collapsed";
+
+/**
+ * Coming back to the tab revalidates what's on screen at most once a minute, and never blanks it: data stays put while
+ * it refreshes (no loading state on return), and a hidden tab doesn't poll.
+ */
+export const SWR_OPTIONS: SWRConfiguration = { focusThrottleInterval: 60_000, keepPreviousData: true, refreshWhenHidden: false };
 
 const COLLAPSED_EVENT = "brandloop:sidebar";
 
@@ -66,6 +73,14 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
   const pathname = usePathname();
   const router = useRouter();
   const section = sectionFor(pathname);
+  // Post editor: document mode. The sidebar steps aside (the chat column carries the way back) to give the editor room.
+  const [peek, setPeek] = useState<string | null>(null);
+  const focusMode = /^\/posts\/[^/]+\/?$/.test(pathname) && peek !== pathname;
+  useEffect(() => {
+    const toggle = () => setPeek((p) => (p === pathname ? null : pathname));
+    window.addEventListener("orbit:toggle-sidebar", toggle);
+    return () => window.removeEventListener("orbit:toggle-sidebar", toggle);
+  }, [pathname]);
   const collapsedPref = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const tablet = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
   const collapsed = collapsedPref || tablet;
@@ -105,6 +120,7 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
 
   return (
     <AccountProvider account={account}>
+      <SWRConfig value={SWR_OPTIONS}>
       <div className="relative flex h-svh overflow-hidden bg-ground text-text">
         <span aria-hidden="true" className="orbit-ambient" />
         <Grain />
@@ -112,7 +128,8 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
           aria-label="Sidebar"
           style={{ width: asideWidth }}
           className={cn(
-            "relative hidden shrink-0 overflow-hidden border-r border-line-soft md:flex",
+            "relative hidden shrink-0 overflow-hidden border-r border-line-soft",
+            focusMode ? "md:hidden" : "md:flex",
             "motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-[var(--ease-out)]",
           )}
         >
@@ -170,6 +187,7 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
       </Dialog.Root>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      </SWRConfig>
     </AccountProvider>
   );
 }

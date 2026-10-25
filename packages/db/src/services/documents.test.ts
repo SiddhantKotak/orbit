@@ -14,7 +14,7 @@ import {
   listDocuments,
   listDocumentVersions,
   listPosts,
-  restoreDocumentVersion,
+  switchDocumentVersion,
   saveDocumentVersion,
 } from "./documents";
 
@@ -113,15 +113,23 @@ describe("documents", () => {
     expect((await getDocument(p, d.id))!.version).toBe(2);
   });
 
-  it("restore writes a new RESTORE version with the old text", async () => {
+  it("switching moves the current pointer freely in both directions without adding a row; the next edit is max + 1", async () => {
     const d = await createDocumentForChat(p, chat, { title: "T", text: "v1", hook: "h1" });
     await saveDocumentVersion(p, d.id, { text: "v2", hook: "h2", source: "USER_EDIT", expectedVersion: 1 });
-    const r = await restoreDocumentVersion(p, d.id, 1, 2);
-    expect(r).toMatchObject({ version: 3, text: "v1", hook: "h1" });
-    const versions = await listDocumentVersions(p, d.id);
-    expect(versions[0]).toMatchObject({ version: 3, source: "RESTORE", changeSummary: "Restored version 1" });
-    await expect(restoreDocumentVersion(p, d.id, 1, 2)).rejects.toBeInstanceOf(DocumentVersionConflict);
-    await expect(restoreDocumentVersion(p, d.id, 9, 3)).rejects.toMatchObject({ code: "not_found" });
+    const r = await switchDocumentVersion(p, d.id, 1, 2);
+    expect(r).toMatchObject({ currentVersion: 1, version: 3, text: "v1", hook: "h1" });
+    expect(await prisma.documentVersion.count({ where: { documentId: d.id } })).toBe(2);
+    // Forward again, then back: still no rows.
+    expect(await switchDocumentVersion(p, d.id, 2, 3)).toMatchObject({ currentVersion: 2, version: 4, text: "v2", hook: "h2" });
+    expect(await switchDocumentVersion(p, d.id, 1, 4)).toMatchObject({ currentVersion: 1, version: 5, text: "v1" });
+    expect(await prisma.documentVersion.count({ where: { documentId: d.id } })).toBe(2);
+    // The revision moved on: a switch from the stale token is a conflict, and so is a save.
+    await expect(switchDocumentVersion(p, d.id, 1, 2)).rejects.toBeInstanceOf(DocumentVersionConflict);
+    await expect(saveDocumentVersion(p, d.id, { text: "x", source: "USER_EDIT", expectedVersion: 2 })).rejects.toBeInstanceOf(DocumentVersionConflict);
+    await expect(switchDocumentVersion(p, d.id, 9, 5)).rejects.toMatchObject({ code: "not_found" });
+    const next = await saveDocumentVersion(p, d.id, { text: "v3", source: "USER_EDIT", expectedVersion: 5 });
+    expect(next).toMatchObject({ currentVersion: 3, version: 6, text: "v3" });
+    expect((await listDocumentVersions(p, d.id)).map((v) => v.version)).toEqual([3, 2, 1]);
   });
 
   it("rejects a 121-char title and hides other profiles' documents", async () => {
@@ -138,7 +146,7 @@ describe("documents", () => {
     expect(await getChatDocument(q, chat)).toBeNull();
     await expect(listDocumentVersions(q, d.id)).rejects.toMatchObject({ code: "not_found" });
     await expect(saveDocumentVersion(q, d.id, { text: "steal", source: "USER_EDIT", expectedVersion: 1 })).rejects.toMatchObject({ code: "not_found" });
-    await expect(restoreDocumentVersion(q, d.id, 1, 1)).rejects.toMatchObject({ code: "not_found" });
+    await expect(switchDocumentVersion(q, d.id, 1, 1)).rejects.toMatchObject({ code: "not_found" });
     // Another profile can't attach a post to this chat either.
     await expect(createDocumentForChat(q, chat, { title: "t", text: "y" })).rejects.toMatchObject({ code: "not_found" });
     expect((await getDocument(p, d.id))!.version).toBe(1);

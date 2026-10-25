@@ -17,7 +17,11 @@ const FilePartSchema = z.object({
   filename: z.string().max(255).optional(),
 });
 
+/** A pick from a presentOptions panel: names the picker's tool call and the option; the brief is read from the stored call. */
+export const OptionPickSchema = z.object({ pickerToolCallId: z.string().min(1).max(200), optionId: z.string().min(1).max(40) });
+
 export const MessageMetadataSchema = z.object({
+  optionPick: OptionPickSchema.optional(),
   createdAt: z.string(),
   hideInUI: z.boolean().optional(),
   quickLinkKey: z.string().optional(),
@@ -41,17 +45,26 @@ export const ChatRequestSchema = z.object({
   selectedKnowledgeBaseIds: z.array(z.string().min(1)).max(LIMITS.knowledgeSelections).default([]),
   selectedWritingStyleId: z.string().min(1).nullable().default(null),
   webSearchEnabled: z.boolean().default(true),
+  /** The chat model the user picked; the web route checks it against its allowlist. */
+  model: z.string().min(1).max(60).nullish(),
   /** A framework or template picked in the composer for this message only (Task W8). */
   selectedFormatId: z.string().min(1).nullable().default(null).refine((id) => id === null || FORMAT_IDS.has(id), "Unknown format."),
   documentContext: z.object({ id: z.string().min(1), version: z.number().int().min(1) }).optional(),
   quickLinkKey: z.string().min(1).optional(),
+  optionPick: OptionPickSchema.optional(),
   flowType: z.string().min(1).nullable().optional(),
   flowStep: z.string().min(1).nullable().optional(),
-  uiAction: z.enum(["start-flow", "quick-link", "composer-action"]).nullable().optional(),
+  uiAction: z.enum(["start-flow", "quick-link", "composer-action", "option-pick"]).nullable().optional(),
 });
 export type ChatRequestBody = z.infer<typeof ChatRequestSchema>;
 
-export type MessageMetadata = { createdAt: string; hideInUI?: boolean; quickLinkKey?: string; modelId?: string };
+export type MessageMetadata = {
+  createdAt: string;
+  hideInUI?: boolean;
+  quickLinkKey?: string;
+  optionPick?: { pickerToolCallId: string; optionId: string };
+  modelId?: string;
+};
 
 export type ChatDataParts = {
   textDelta: { id: string; text: string };

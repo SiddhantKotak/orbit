@@ -6,7 +6,7 @@ import {
   getDocument,
   linkChatToDocument,
   listDocumentVersions,
-  restoreDocumentVersion,
+  switchDocumentVersion,
   saveDocumentVersion,
 } from "@brandloop/db";
 import { applyProposal, ProposalError } from "@brandloop/agent";
@@ -90,16 +90,16 @@ export async function patchDocumentHandler(request: Request, { params }: Ctx): P
   }
 }
 
-const RestoreSchema = z.object({ version, expectedVersion: version });
+const SwitchSchema = z.object({ version, expectedVersion: version });
 
-/** POST /api/documents/:id/restore: `{version, expectedVersion}` writes a new RESTORE version. */
-export async function restoreDocumentHandler(request: Request, { params }: Ctx): Promise<Response> {
+/** POST /api/documents/:id/switch: `{version, expectedVersion}` makes that version current (no row is written). */
+export async function switchDocumentHandler(request: Request, { params }: Ctx): Promise<Response> {
   const profileId = await currentProfileId();
   if (!profileId) return fail(400, "Create a profile first.");
-  const parsed = RestoreSchema.safeParse(await readJson(request));
+  const parsed = SwitchSchema.safeParse(await readJson(request));
   if (!parsed.success) return fail(400, "Send version and expectedVersion as whole numbers.");
   try {
-    return Response.json(await restoreDocumentVersion(profileId, (await params).id, parsed.data.version, parsed.data.expectedVersion));
+    return Response.json(await switchDocumentVersion(profileId, (await params).id, parsed.data.version, parsed.data.expectedVersion));
   } catch (err) {
     return fromError(err);
   }

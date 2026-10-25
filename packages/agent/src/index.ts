@@ -1,6 +1,7 @@
 export { LIMITS } from "./limits";
 export * from "./types";
-export type { OpenDocument, TurnContext } from "./context";
+export { stripCitations } from "./client/sanitize";
+export type { OpenDocument, TurnContext, VisualsToolDeps } from "./context";
 export { checkMemoryFact, FACT_MAX_CHARS, FACT_MIN_CHARS, type FactCheck } from "./guard";
 export { buildSystemPrompt, loadPromptInput, STATIC_PREFIX, type PromptInput } from "./prompt";
 export { OMITTED_OUTPUT, windowHistory } from "./history";
@@ -74,3 +75,8 @@ export { chatError, chatErrorResponse, runChatTurn, STREAM_ERROR_TEXT, type Chat
 export { UI_MESSAGE_STREAM_HEADERS } from "ai";
 export { fakeResearchProvider } from "./mock";
 export { selectResearchProvider, type ResearchProvider } from "./research/provider";
+
+export { visualTools, suggestVisualsRun, ConceptSchema, VISUAL_TYPES, VISUAL_ASPECTS, NEEDS_POST as NEEDS_POST_FOR_VISUALS } from "./tools/visuals";
+export type { SuggestVisualsOutput, ProposeVisualOutput, EditVisualOutput, VisualConcept } from "./tools/visuals";
+
+export { policyScreen, screenInput, screenOutput, SAFETY_RULES, type ChatSafety, type Screen } from "./safety";

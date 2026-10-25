@@ -4,7 +4,7 @@
  */
 export const QUICK_LINKS = [
   { key: "hook-variations", label: "Hook options", prompt: "Give me a few different opening lines for this post." },
-  { key: "change-the-angle", label: "Try another angle", prompt: "Rewrite this post from a different angle, keeping the main point." },
+  { key: "change-the-angle", label: "Try another angle", prompt: "Show me a few different angles for this post." },
   { key: "change-the-closing", label: "Rework the ending", prompt: "Give this post a stronger ending." },
   { key: "verify-post", label: "Review it", prompt: "Review this post for clarity, accuracy and anything that reads off." },
   { key: "analyze-post", label: "Analyze it", prompt: "Analyze this post: what works, what to fix, and a score out of 10." },

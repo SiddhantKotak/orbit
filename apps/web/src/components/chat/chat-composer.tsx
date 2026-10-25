@@ -5,6 +5,7 @@ import { Globe, Square } from "lucide-react";
 import { Button, ComposerShell, cn } from "@brandloop/ui";
 import { SendIcon } from "@brandloop/ui/icons";
 import { VoicePicker, type VoiceOption } from "@/components/home/voice-picker";
+import { ModelPicker, type AiModelInfo } from "./model-picker";
 import { FormatMenu } from "./format-menu";
 import { KnowledgeChip, KnowledgePicker, type KnowledgeChoice } from "./knowledge-picker";
 
@@ -50,6 +51,8 @@ export function ChatComposer({
   onFormatChange,
   fromRect,
   inputRef,
+  model,
+  placeholder,
 }: {
   value: string;
   onValueChange: (v: string) => void;
@@ -67,6 +70,9 @@ export function ChatComposer({
   onFormatChange?: (id: string | null) => void;
   fromRect?: ComposerRect | null;
   inputRef: RefObject<HTMLTextAreaElement | null>;
+  model?: { current: string | null; info: AiModelInfo | null; onChoose: (id: string) => void };
+  /** Replaces the idle placeholder, e.g. while an options panel is open. */
+  placeholder?: string;
 }) {
   const sheetRef = useRef<HTMLFormElement>(null);
   useHandoff(sheetRef, fromRect);
@@ -105,11 +111,11 @@ export function ChatComposer({
           rows={1}
           data-lenis-prevent
           enterKeyHint="send"
-          placeholder={busy ? "Orbit is writing…" : "Reply, or ask for a change…"}
-          className="block max-h-[min(40vh,320px)] min-h-[44px] w-full resize-none bg-transparent px-4 pt-3.5 text-[16px] leading-[1.5] text-text outline-none [field-sizing:content] placeholder:text-text-3 sm:px-5 sm:pt-[18px]"
+          placeholder={busy ? "Orbit is writing…" : (placeholder ?? "Reply, or ask for a change…")}
+          className="block max-h-[min(40vh,320px)] min-h-[44px] w-full resize-none bg-transparent px-4 pt-4 text-[16px] leading-[1.5] text-text outline-none [field-sizing:content] placeholder:text-text-3 sm:px-5"
         />
-        <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-2 sm:px-3 sm:pb-3">
-          <div className="flex min-w-0 items-center gap-1">
+        <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-2 [--composer-control:44px] @md:[--composer-control:40px]">
+          <div className="flex min-w-0 items-center gap-1 @md:gap-2">
             <KnowledgePicker selected={knowledge} onChange={onKnowledgeChange} />
             <Button
               type="button"
@@ -119,13 +125,14 @@ export function ChatComposer({
               aria-label="Web search"
               title={webSearch ? "Web search is on" : "Web search is off"}
               onClick={() => onWebSearchChange(!webSearch)}
-              className={cn(webSearch && "text-text")}
+              className={cn("h-[var(--composer-control)]", webSearch && "text-text")}
             >
               <Globe aria-hidden="true" />
-              <span className="hidden sm:inline">Web</span>
+              <span className="hidden @md:inline">Web</span>
               <span aria-hidden="true" className={cn("web-switch", webSearch && "web-switch--on")} />
             </Button>
             <VoicePicker voices={voices} selectedId={selectedVoiceId} />
+            {model && <ModelPicker current={model.current} info={model.info} onChoose={model.onChoose} />}
             {onFormatChange && <FormatMenu value={formatId} onChange={onFormatChange} disabled={busy} />}
           </div>
           {busy ? (
@@ -133,7 +140,7 @@ export function ChatComposer({
               type="button"
               aria-label="Stop"
               onClick={onStop}
-              className="orbit-transition grid size-10 shrink-0 place-items-center rounded-full border border-line-control text-text hover:border-inverse hover:bg-inverse hover:text-on-inverse"
+              className="orbit-transition grid size-[var(--composer-control)] shrink-0 place-items-center rounded-full border border-line-control text-text hover:border-inverse hover:bg-inverse hover:text-on-inverse"
             >
               <Square aria-hidden="true" className="size-3.5 fill-current" />
             </button>
@@ -142,7 +149,7 @@ export function ChatComposer({
               type="submit"
               aria-label="Send"
               disabled={!canSend}
-              className="orbit-transition grid h-10 w-[42px] shrink-0 place-items-center rounded-pill bg-accent text-on-accent enabled:hover:bg-accent-hover enabled:hover:shadow-glow motion-safe:enabled:hover:-translate-y-px motion-safe:enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="orbit-transition grid size-[var(--composer-control)] shrink-0 place-items-center rounded-full bg-accent text-on-accent enabled:hover:bg-accent-hover enabled:hover:shadow-glow motion-safe:enabled:hover:-translate-y-px motion-safe:enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <SendIcon size={18} />
             </button>

@@ -177,6 +177,7 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
 
   const title = doc?.title || (streaming ? "Writing your post…" : "Post");
   const version = doc && doc.version > 0 ? doc.version : null;
+  const currentNo = doc?.currentVersion ?? version;
 
   async function copy() {
     if (!doc) return;
@@ -188,22 +189,20 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
     }
   }
 
-  async function restore(v: number) {
+  async function switchVersion(v: number) {
     if (!version) return;
-    const res = await ctl.restore(v, version);
-    if (res.ok) {
-      toast(`Restored version ${v} as version ${res.version}.`);
-      setTab("post");
-    } else if ("conflict" in res) toast("This post changed. Reloaded the latest version.");
+    const res = await ctl.switchTo(v, version);
+    if (res.ok) setTab("post");
+    else if ("conflict" in res) toast("This post changed. Reloaded the latest version.");
     else toast(res.error);
   }
 
   const duration = reduced ? 0 : durations.hover;
 
   const header = (
-    <header className="flex flex-col gap-4 px-6 pb-4 pt-5">
+    <header className="flex flex-col gap-4 px-6 pb-4 pt-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 pt-1">
           <Dialog.Title asChild>
             <h2 ref={headingRef} tabIndex={-1} className="truncate text-[22px] font-medium leading-tight tracking-[-0.01em] text-text outline-none">
               {title}
@@ -218,7 +217,7 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
                 <>
                   <span aria-hidden="true">·</span>
                   <span data-version-label>
-                    Version <CountUp value={version} />
+                    Version <CountUp value={currentNo ?? version} />
                   </span>
                 </>
               )}
@@ -253,7 +252,7 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
           }}
           options={[
             { value: "post", label: "Post" },
-            { value: "versions", label: version === 1 ? "1 version" : `${version} versions` },
+            { value: "versions", label: (ctl.versions?.length ?? currentNo ?? 1) === 1 ? "1 version" : `${ctl.versions?.length ?? currentNo} versions` },
           ]}
         />
       )}
@@ -266,10 +265,10 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
         <div className="pl-3">
           <VersionList
             versions={ctl.versions}
-            current={version}
+            current={currentNo ?? 0}
             error={ctl.versionsError}
             busy={ctl.saving || busy}
-            onRestore={(v) => void restore(v)}
+            onSwitch={(v) => void switchVersion(v)}
             onRetry={ctl.retryVersions}
           />
         </div>

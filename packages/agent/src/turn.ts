@@ -1,4 +1,4 @@
-import type { AiClient, Embedder } from "@brandloop/ai";
+import { limitMessage, type AiClient, type Embedder } from "@brandloop/ai";
 import {
   ChatError,
   claimRun,
@@ -17,6 +17,7 @@ import {
   createUIMessageStreamResponse,
   InvalidToolInputError,
   NoSuchToolError,
+  hasToolCall,
   stepCountIs,
   streamText,
   ToolCallRepairError,
@@ -28,16 +29,19 @@ import {
 import type { ResearchProvider } from "./research/provider";
 import { isTimely } from "./research/timely";
 import { randomUUID } from "node:crypto";
-import type { TurnContext } from "./context";
+import type { TurnContext, VisualsToolDeps } from "./context";
 import { windowHistory } from "./history";
 import { nextActiveTask, type TurnOutcome } from "./ledger";
 import { LIMITS } from "./limits";
+import { screenInput, screenOutput, type ChatSafety } from "./safety";
+import { scriptedModel } from "./mock";
 import { finalizeAbortedParts, toStoredParts } from "./persist";
 import { buildSystemPrompt, loadPromptInput } from "./prompt";
 import type { RunRegistry } from "./registry";
 import { titleChat } from "./title";
 import { isAbort } from "./tools/run";
 import { buildTools, type ChatUIMessage } from "./tools";
+import { resolveOptionPick } from "./tools/options";
 import { ActiveTaskSchema, type ActiveTask, type ChatRequestBody, type MessageMetadata } from "./types";
 
 export type ChatDeps = {
@@ -50,6 +54,10 @@ export type ChatDeps = {
   webSearchTool?: Tool | null;
   /** Dated research (Task W9). Null or absent: the web is not searched. */
   research?: ResearchProvider | null;
+  /** Image tools (suggest, propose, edit). Null or absent: the tools are not offered. */
+  visuals?: VisualsToolDeps | null;
+  /** Moderation, per-profile rate limit and daily cost cap. Absent: no checks. */
+  safety?: ChatSafety | null;
   now?: () => Date;
   generateId?: () => string;
   /** Whole-turn deadline; past it the turn is aborted and its partial reply saved. Default 285 s (route max 300 s). */
@@ -168,6 +176,16 @@ function failedOutput(output: unknown): boolean {
   return typeof o.error === "string" || o.status === "needs-user-input";
 }
 
+/** The picker this reply left open, for the task ledger. */
+function pendingPicker(parts: Part[]): { id: string; question: string } | null {
+  for (const p of [...(parts as { type: string; toolCallId?: string; state?: string; output?: unknown }[])].reverse()) {
+    if (p.type !== "tool-presentOptions" || p.state !== "output-available" || typeof p.toolCallId !== "string") continue;
+    const question = (p.output as { question?: unknown } | undefined)?.question;
+    if (typeof question === "string") return { id: p.toolCallId, question };
+  }
+  return null;
+}
+
 /** The ledger's summary of each specialist handoff made this turn. */
 function handoffSummaries(handoffs: TurnContext["handoffs"]): TurnOutcome["handoffs"] {
   return [...handoffs.values()].map((h) => {
@@ -232,6 +250,14 @@ export async function runChatTurn(
     );
   }
 
+  const denied = await deps.safety?.check(profileId);
+  if (denied && !denied.ok) {
+    return Response.json(
+      { code: denied.kind === "rate" ? "rate_limited" : "daily_limit", cause: limitMessage(denied), error: limitMessage(denied), retryAfterSec: denied.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(denied.retryAfterSec) } },
+    );
+  }
+
   let defaultTitle: boolean;
   try {
     const { chat } = await getOrCreateChat(profileId, userId, chatId);
@@ -254,11 +280,16 @@ export async function runChatTurn(
     log("chat turn setup failed", err);
     return chatError("internal_error", STREAM_ERROR_TEXT, 500);
   }
-  const { ctx, tools, instructions, window, modelMessages, prevTask, controller, userText } = setup;
+  const { ctx, instructions, window, modelMessages, prevTask, controller, userText } = setup;
+  // A refused message still gets a normal turn (stored, streamed, lock released), answered by a fixed reply and no tools.
+  const verdict = deps.safety ? await screenInput(userText, deps.safety.moderate) : ({ ok: true } as const);
+  if (!verdict.ok) log(`input refused (${verdict.kind})`, new Error("policy"));
+  const tools = verdict.ok ? setup.tools : ({} as typeof setup.tools);
+  const turnModel = verdict.ok ? deps.model : scriptedModel([{ text: verdict.message }], { chunkDelayMs: 5 });
 
   const assistantId = newId();
   const createdAt = now().toISOString();
-  const modelId = typeof deps.model === "string" ? deps.model : deps.model.modelId;
+  const modelId = typeof turnModel === "string" ? turnModel : turnModel.modelId;
   const metadata: MessageMetadata = { createdAt, modelId };
   let streamFailed = false;
 
@@ -295,11 +326,12 @@ export async function runChatTurn(
     execute: ({ writer }) => {
       ctx.writer = writer as unknown as UIMessageStreamWriter;
       const result = streamText({
-        model: deps.model,
-        instructions,
+        model: turnModel,
+        instructions: verdict.ok ? instructions : "Reply with the fixed message only.",
         messages: modelMessages,
         tools,
-        stopWhen: stepCountIs(LIMITS.steps),
+        // A picker ends the turn: the user answers it, then the next turn writes.
+        stopWhen: [stepCountIs(LIMITS.steps), hasToolCall("presentOptions")],
         maxOutputTokens: LIMITS.maxOutputTokens,
         abortSignal: AbortSignal.any([controller.signal, AbortSignal.timeout(deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)]),
         // Another instance may have asked this run to stop (POST /api/chat/stop landed elsewhere).
@@ -312,6 +344,9 @@ export async function runChatTurn(
         onError: ({ error }) => {
           streamFailed = true;
           log("chat model error", error);
+        },
+        onFinish: ({ totalUsage }) => {
+          if (verdict.ok) void deps.safety?.recordUsage(profileId, modelId, totalUsage).catch(() => {});
         },
       });
       // Keep the model stream flowing to the end no matter who reads the UI stream.
@@ -336,6 +371,14 @@ export async function runChatTurn(
         const finish = isAborted ? "aborted" : failed ? "error" : "stop";
         let parts = toStoredParts(responseMessage.parts);
         if (finish !== "stop") parts = finalizeAbortedParts(parts);
+        if (finish === "stop" && verdict.ok && deps.safety) {
+          // The reply was already streamed; what is stored (and shown on reload) is the refusal instead.
+          const out = await screenOutput(textOf(parts), deps.safety.moderate);
+          if (!out.ok) {
+            log("assistant reply withheld (moderation)", new Error("policy"));
+            parts = [{ type: "text", text: out.message }] as typeof parts;
+          }
+        }
 
         const turn: TurnOutcome = {
           requestMessageId,
@@ -348,7 +391,7 @@ export async function runChatTurn(
             ? { id: ctx.documentRef.current.id, title: ctx.documentRef.current.title }
             : null,
           flow: null,
-          picker: null,
+          picker: pendingPicker(parts),
           now: now(),
         };
         const activeTask = nextActiveTask(prevTask, turn, () => ctx.taskId);
@@ -398,6 +441,7 @@ export async function runChatTurn(
         flowType: body.flowType ?? null,
         flowStep: body.flowStep ?? null,
         uiAction: body.uiAction ?? null,
+        optionPick: body.optionPick ?? null,
       },
     });
 
@@ -448,8 +492,10 @@ export async function runChatTurn(
       },
       writer: null,
       handoffs: new Map(),
+      pickedAngle: resolveOptionPick(stored, body.optionPick),
       documentRef: { current: await getChatDocument(profileId, chatId) },
       documentContext: body.documentContext ?? null,
+      visuals: deps.visuals ?? null,
       now,
       research: {
         provider: deps.research ?? null,

@@ -14,7 +14,7 @@ vi.mock("@/lib/account", () => ({ getAccount: async () => env.account }));
 
 import { createDocumentForChat, deleteChat, ensureAccount, getOrCreateChat, prisma, saveAssistantMessage, saveDocumentVersion } from "@brandloop/db";
 import { randomUUID } from "node:crypto";
-import { applyProposalHandler, getDocumentHandler, linkChatHandler, listVersionsHandler, patchDocumentHandler, restoreDocumentHandler } from "./documents-api";
+import { applyProposalHandler, getDocumentHandler, linkChatHandler, listVersionsHandler, patchDocumentHandler, switchDocumentHandler } from "./documents-api";
 
 const CLERK = "user_test_webdocs";
 let mine: { userId: string; profileId: string };
@@ -63,7 +63,7 @@ describe("documents routes", () => {
     expect((await getDocumentHandler(new Request("http://test"), params(d.id))).status).toBe(404);
     expect((await listVersionsHandler(new Request("http://test"), params(d.id))).status).toBe(404);
     expect((await patchDocumentHandler(send("PATCH", { text: "x", expectedVersion: 1 }), params(d.id))).status).toBe(404);
-    expect((await restoreDocumentHandler(send("POST", { version: 1, expectedVersion: 1 }), params(d.id))).status).toBe(404);
+    expect((await switchDocumentHandler(send("POST", { version: 1, expectedVersion: 1 }), params(d.id))).status).toBe(404);
   });
 
   it("PATCH saves a user edit, then 409s a stale expectedVersion with the current version", async () => {
@@ -93,15 +93,17 @@ describe("documents routes", () => {
     }
   });
 
-  it("POST restore writes a RESTORE version; a missing version is 404 and a stale one 409", async () => {
+  it("POST switch moves the current version without a new row; a missing version is 404 and a stale one 409", async () => {
     const d = await newDoc("Original");
     await patchDocumentHandler(send("PATCH", { text: "Changed", expectedVersion: 1 }), params(d.id));
-    const res = await restoreDocumentHandler(send("POST", { version: 1, expectedVersion: 2 }), params(d.id));
+    const res = await switchDocumentHandler(send("POST", { version: 1, expectedVersion: 2 }), params(d.id));
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ version: 3, text: "Original" });
-    expect((await restoreDocumentHandler(send("POST", { version: 1, expectedVersion: 2 }), params(d.id))).status).toBe(409);
-    expect((await restoreDocumentHandler(send("POST", { version: 9, expectedVersion: 3 }), params(d.id))).status).toBe(404);
-    expect((await restoreDocumentHandler(send("POST", { version: "1" }), params(d.id))).status).toBe(400);
+    expect(await res.json()).toMatchObject({ version: 3, currentVersion: 1, text: "Original" });
+    // Switching forward again is just as free.
+    expect(await (await switchDocumentHandler(send("POST", { version: 2, expectedVersion: 3 }), params(d.id))).json()).toMatchObject({ version: 4, currentVersion: 2, text: "Changed" });
+    expect((await switchDocumentHandler(send("POST", { version: 1, expectedVersion: 2 }), params(d.id))).status).toBe(409);
+    expect((await switchDocumentHandler(send("POST", { version: 9, expectedVersion: 4 }), params(d.id))).status).toBe(404);
+    expect((await switchDocumentHandler(send("POST", { version: "1" }), params(d.id))).status).toBe(400);
   });
 });
 

@@ -4,6 +4,14 @@ import type { ResearchBrief } from "./research/brief";
 import type { ResearchProvider } from "./research/provider";
 import type { HandoffEnvelope } from "./specialists/envelope";
 
+/** What the image tools need from the app: the agent package holds no database or job code of its own for images. */
+export type VisualsToolDeps = {
+  /** The newest finished image attached to this post, or null. */
+  latestAttached(profileId: string, documentId: string): Promise<{ id: string } | null>;
+  /** Starts one free edit through the same path as the edit route (safety check, edit cap, op lock, job). */
+  startEdit(profileId: string, visualId: string, instruction: string): Promise<{ ok: true; remainingEdits: number } | { ok: false; message: string }>;
+};
+
 export type OpenDocument = { id: string; title: string; version: number; text: string };
 
 /** Everything a tool needs for one chat turn. Built once per turn by the turn runner. */
@@ -26,6 +34,8 @@ export type TurnContext = {
     /** A framework or template the user picked for this message, or null. */
     formatId: string | null;
   };
+  /** The angle the user picked from a presentOptions panel this turn, resolved from the stored call; else null. */
+  pickedAngle?: { question: string; label: string; brief: string } | null;
   writer: UIMessageStreamWriter | null;
   /** Specialist envelopes produced this turn, keyed by tool call id. */
   handoffs: Map<string, HandoffEnvelope>;
@@ -36,6 +46,8 @@ export type TurnContext = {
   documentContext: { id: string; version: number } | null;
   /** The chat's post: loaded at the start of the turn, replaced when a tool creates or edits it. */
   documentRef: { current: OpenDocument | null };
+  /** Image tools are offered only when the app wires this in (VISUALS_ENABLED). */
+  visuals?: VisualsToolDeps | null;
   now: () => Date;
   /** Dated research (Task W9): the provider, the newest brief of this turn, how many calls were made, and whether the first step must research. */
   research: { provider: ResearchProvider | null; brief: ResearchBrief | null; calls: number; required: boolean };

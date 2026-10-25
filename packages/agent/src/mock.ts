@@ -93,6 +93,29 @@ function toolResultsThisTurn(prompt: Prompt): { toolName: string; toolCallId: st
   return out;
 }
 
+function systemText(prompt: Prompt): string {
+  const system = prompt.find((m) => m.role === "system");
+  return typeof system?.content === "string" ? system.content : "";
+}
+
+/** Three scripted angles for a post, as the picker tool takes them. The briefs are deliberately long enough to spot in a leak. */
+function scriptedAngles(topic: string, forOpenPost: boolean) {
+  const subject = topic.trim() || "this";
+  const options = [
+    { id: "myth", label: `The biggest myth about ${subject}`, explainer: "A contrarian opener earns attention and invites debate.", brief: `Argue that the most common belief about ${subject} is wrong. Open with the myth, then show what is true instead. Plain words, no invented personal facts.` },
+    { id: "practical", label: `A practical way to use ${subject} this week`, explainer: "Concrete steps are the most saved and shared kind of post.", brief: `Give three concrete steps a reader can take with ${subject} this week. One short block per step. No invented numbers or stories.` },
+    { id: "mistake", label: `The mistake teams make with ${subject}`, explainer: "Naming a costly mistake makes the lesson stick.", brief: `Describe the most common mistake with ${subject}, why it happens and the fix. Keep it general: no personal anecdotes unless the user gave one.` },
+  ];
+  return {
+    preamble: forOpenPost ? "Here are other ways to take this post." : `${subject} can support several strong posts, so the central claim will shape everything that follows.`,
+    question: forOpenPost ? "Which angle should this post take?" : `Which angle should the ${subject} post take?`,
+    options,
+    recommendedOptionId: "practical",
+    allowFreeInput: true,
+    freeInputPlaceholder: "Or tell me something else…",
+  };
+}
+
 /** The first line of the `<open_document>` in the system prompt, or null when no post is open. */
 function openDocumentFirstLine(prompt: Prompt): string | null {
   const system = prompt.find((m) => m.role === "system");
@@ -114,6 +137,9 @@ const AFTER_TOOL: Record<string, string> = {
   proposeDocumentEdits: "Here is a punchier opening. Apply it if you like it.",
   updateDocument: "Done. The shorter version is in the panel.",
   delegateEditing: "The review is ready.",
+  suggestVisuals: "Here are three image ideas for your post.",
+  proposeVisual: "Here is the image. Check the prompt, then make it.",
+  editVisual: "On it. The new image will appear in the panel.",
   analyzePost: "Here is the analysis. Fix the first item before anything else.",
   researchTopic: "Here is what changed in the window: two dated items fit, and one older item was left out.",
   generateHooks: "Here are five hook options, each a different kind. Pick the one you like.",
@@ -149,10 +175,17 @@ function route(opts: CallOptions): ScriptStep {
   const call = (toolName: string, input: unknown): ScriptStep =>
     has.has(toolName) ? { toolCalls: [{ toolName, input }] } : { text: "Mock reply." };
 
+  // Scope rule (see SAFETY_RULES): an unrelated request gets a one-line redirect instead of the task.
+  if (/\b(recipe|lasagna|football score|homework|tax return)\b/i.test(text)) {
+    return { text: "I focus on your LinkedIn writing, so I can't help with that. Want to turn it into a post idea instead?" };
+  }
   const last = results.at(-1);
   if (last) {
     if (last.toolName === "researchTopic" && /\b(draft|write)\b/i.test(text)) {
       return call("delegateWriting", { request: `Write a short LinkedIn post for the user from the research. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: null, overrides: null, chosenHook: null });
+    }
+    if (last.toolName === "createDocument" && systemText(opts.prompt).includes("<picked_angle>\nQuestion asked:")) {
+      return { text: "Here's your first draft. What would you like to improve?" };
     }
     if (last.toolName === "delegateWriting" && /\[e2e:needs-facts\]/.test(text)) {
       return { text: `Before I write this I need two facts only you have. ${SCRIPTED_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join(" ")}` };
@@ -161,6 +194,27 @@ function route(opts: CallOptions): ScriptStep {
       return call("createDocument", { title: SCRIPTED_TITLE, kind: "text", specialistHandoffToolCallId: last.toolCallId });
     }
     return { text: AFTER_TOOL[last.toolName] ?? "Done." };
+  }
+  const angle = systemText(opts.prompt).includes("<picked_angle>\nQuestion asked:");
+  const openLine = openDocumentFirstLine(opts.prompt);
+  if (angle && has.has("delegateWriting") && !openLine) {
+    const brief = /Writing brief for this angle:\n([\s\S]*?)\n<\/picked_angle>/.exec(systemText(opts.prompt))?.[1] ?? text;
+    return call("delegateWriting", { request: `Write a short LinkedIn post for the user. Follow this brief: ${brief}`.slice(0, 4_000), specialty: "post", personalDetails: "none", overrides: null, chosenHook: null });
+  }
+  if (angle && openLine) {
+    return call("updateDocument", { description: text.slice(0, 2_000), editRequirements: ["Take the picked angle"], editScope: "whole-document", restoreVersion: null });
+  }
+  if (!angle && has.has("presentOptions") && /\bdifferent angles\b/i.test(text) && openLine) {
+    return call("presentOptions", scriptedAngles("post", true));
+  }
+  const newTopic = !openLine && /\b(create|write|make)\b[^.]*\bpost on\s+(.+?)[.!?]*$/i.exec(text)?.[2];
+  if (newTopic && has.has("presentOptions")) return call("presentOptions", scriptedAngles(newTopic, false));
+  if (/\bimages?\b/i.test(text) && /\bsuggest\b/i.test(text)) return call("suggestVisuals", { focusHint: null });
+  if (/\b(image|picture)\b/i.test(text) && /\b(make|create|add)\b/i.test(text)) {
+    return call("proposeVisual", { prompt: text.slice(0, 1_000), type: "general", aspect: null });
+  }
+  if (/\b(background|headline|colou?rs?)\b/i.test(text) && /\b(make|change|use)\b/i.test(text)) {
+    return call("editVisual", { instruction: text.slice(0, 1_000) });
   }
   if (isTimely(text).timely) {
     if (has.has("researchTopic")) return call("researchTopic", { query: text.slice(0, 300), window: null, site: null });
@@ -276,6 +330,14 @@ CANNED.push(
     payload: { qualityReview: { passed: true, score: 84, issues: [], deterministicChecks: [] } },
   },
 );
+
+/** The mock image ideas (suggestVisuals). */
+export const SCRIPTED_VISUAL_CONCEPTS = [
+  { name: "Three habits list", description: "A clean numbered list of the three habits.", whyItWorks: "Lists are easy to scan in the feed.", type: "infographic", prompt: "A clean infographic with a numbered list of three habits, large readable type, calm colours." },
+  { name: "Before and after", description: "Two columns showing the old way against the new way.", whyItWorks: "Contrast makes the change obvious at a glance.", type: "before_after", prompt: "A before-and-after comparison with two labelled columns, simple icons and a clear divider." },
+  { name: "The key line", description: "The post's strongest sentence as a typographic card.", whyItWorks: "A single line is memorable and shareable.", type: "quote", prompt: "A typographic quote card with one strong sentence on a plain gradient background." },
+];
+CANNED.push({ concepts: SCRIPTED_VISUAL_CONCEPTS });
 
 /** The mock carousel: slides for the scripted post (the carousel studio's "Generate slides"). */
 export const SCRIPTED_SLIDES = [

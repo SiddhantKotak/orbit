@@ -25,22 +25,22 @@ export function relativeTime(iso: string, now = Date.now()): string {
 }
 
 /**
- * Every saved version, newest first (Task 8 history). The current one is marked; any other can be restored, which
- * writes a new version (history is never rewritten).
+ * Every saved version, newest first. The current one is marked; choosing any other makes it current at once (no
+ * new row: switching is free in both directions, history is never rewritten).
  */
 export function VersionList({
   versions,
   current,
   error,
   busy,
-  onRestore,
+  onSwitch,
   onRetry,
 }: {
   versions: VersionRow[] | null;
   current: number;
   error: boolean;
   busy: boolean;
-  onRestore: (version: number) => void;
+  onSwitch: (version: number) => void;
   onRetry: () => void;
 }) {
   if (error)
@@ -54,7 +54,18 @@ export function VersionList({
     );
   if (!versions) return <p className="type-ui text-text-2">Loading versions…</p>;
   return (
-    <ol aria-label="Versions" className="flex flex-col">
+    <ol
+      aria-label="Versions"
+      className="flex flex-col"
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        const rows = [...e.currentTarget.querySelectorAll<HTMLElement>("[data-version-open]")];
+        const at = rows.indexOf(document.activeElement as HTMLElement);
+        if (at < 0) return;
+        e.preventDefault();
+        rows[Math.min(rows.length - 1, Math.max(0, at + (e.key === "ArrowDown" ? 1 : -1)))]?.focus();
+      }}
+    >
       {versions.map((v) => {
         const isCurrent = v.version === current;
         return (
@@ -67,7 +78,17 @@ export function VersionList({
             )}
           >
             <span className="w-10 shrink-0 font-mono text-xs tabular-nums text-text-2">v{v.version}</span>
-            <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              data-version-open={v.version}
+              aria-label={`Switch to version ${v.version}`}
+              aria-current={isCurrent ? "true" : undefined}
+              disabled={busy && !isCurrent}
+              onClick={() => {
+                if (!isCurrent) onSwitch(v.version);
+              }}
+              className="min-w-0 flex-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
+            >
               <p className="truncate text-sm font-medium text-text">
                 {SOURCE[v.source] ?? "Saved"}
                 {isCurrent && <span className="ml-2 text-xs font-normal text-accent-text">Current</span>}
@@ -77,18 +98,7 @@ export function VersionList({
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-            </div>
-            {!isCurrent && (
-              <Button
-                variant="micro"
-                size="sm"
-                disabled={busy}
-                onClick={() => onRestore(v.version)}
-                aria-label={`Restore version ${v.version}`}
-              >
-                Restore
-              </Button>
-            )}
+            </button>
           </li>
         );
       })}
