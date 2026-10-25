@@ -6,7 +6,7 @@ import {
   getChatDocument,
   getDocument,
   listDocumentVersions,
-  restoreDocumentVersion,
+  switchDocumentVersion,
   saveDocumentVersion,
   type DocumentSnapshot,
 } from "@brandloop/db";
@@ -193,7 +193,7 @@ export async function updateDocumentRun(ctx: TurnContext, input: UpdateDocumentI
   write({ type: "data-updating", data: true, transient: true });
   try {
     if (restore !== null) {
-      const saved = await restoreDocumentVersion(ctx.profileId, doc.id, restore, doc.version);
+      const saved = await switchDocumentVersion(ctx.profileId, doc.id, restore, doc.version);
       publish(ctx, saved);
       return { id: saved.id, title: saved.title, version: saved.version, success: true, contentChanged: saved.text !== doc.text, changeSummary: `Restored version ${restore}` };
     }

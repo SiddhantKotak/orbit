@@ -25,27 +25,22 @@ export function relativeTime(iso: string, now = Date.now()): string {
 }
 
 /**
- * Every saved version, newest first (Task 8 history). The current one is marked; any other can be restored, which
- * writes a new version (history is never rewritten).
+ * Every saved version, newest first. The current one is marked; choosing any other makes it current at once (no
+ * new row: switching is free in both directions, history is never rewritten).
  */
 export function VersionList({
   versions,
   current,
   error,
   busy,
-  onRestore,
-  onPreview,
-  previewing,
+  onSwitch,
   onRetry,
 }: {
   versions: VersionRow[] | null;
   current: number;
   error: boolean;
   busy: boolean;
-  onRestore: (version: number) => void;
-  /** Opens that version read-only. */
-  onPreview?: (version: number) => void;
-  previewing?: number | null;
+  onSwitch: (version: number) => void;
   onRetry: () => void;
 }) {
   if (error)
@@ -86,9 +81,12 @@ export function VersionList({
             <button
               type="button"
               data-version-open={v.version}
-              aria-label={`View version ${v.version}`}
-              aria-current={previewing === v.version ? "true" : undefined}
-              onClick={() => onPreview?.(v.version)}
+              aria-label={`Switch to version ${v.version}`}
+              aria-current={isCurrent ? "true" : undefined}
+              disabled={busy && !isCurrent}
+              onClick={() => {
+                if (!isCurrent) onSwitch(v.version);
+              }}
               className="min-w-0 flex-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
             >
               <p className="truncate text-sm font-medium text-text">
@@ -101,17 +99,6 @@ export function VersionList({
                   .join(" · ")}
               </p>
             </button>
-            {!isCurrent && (
-              <Button
-                variant="micro"
-                size="sm"
-                disabled={busy}
-                onClick={() => onRestore(v.version)}
-                aria-label={`Restore version ${v.version}`}
-              >
-                Restore
-              </Button>
-            )}
           </li>
         );
       })}

@@ -14,7 +14,6 @@ import { LayoutReadout } from "./layout-readout";
 import type { DocumentController } from "./use-document";
 import { useThreadPlace } from "./thread-context";
 import { VersionList } from "./version-list";
-import { useVersionPreview, VersionPreviewBar } from "./version-preview";
 
 export const DESKTOP_PANEL = "(min-width: 1024px)";
 const PANEL_WIDTH = 460;
@@ -179,7 +178,6 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
   const title = doc?.title || (streaming ? "Writing your post…" : "Post");
   const version = doc && doc.version > 0 ? doc.version : null;
   const currentNo = doc?.currentVersion ?? version;
-  const vp = useVersionPreview(doc?.id ?? null);
 
   async function copy() {
     if (!doc) return;
@@ -191,14 +189,11 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
     }
   }
 
-  async function restore(v: number) {
+  async function switchVersion(v: number) {
     if (!version) return;
-    const res = await ctl.restore(v, version);
-    if (res.ok) {
-      toast(`Restored version ${v}.`);
-      vp.close();
-      setTab("post");
-    } else if ("conflict" in res) toast("This post changed. Reloaded the latest version.");
+    const res = await ctl.switchTo(v, version);
+    if (res.ok) setTab("post");
+    else if ("conflict" in res) toast("This post changed. Reloaded the latest version.");
     else toast(res.error);
   }
 
@@ -271,31 +266,16 @@ export function DocumentPanel({ ctl, busy }: { ctl: DocumentController; busy: bo
           <VersionList
             versions={ctl.versions}
             current={currentNo ?? 0}
-            previewing={vp.preview?.version ?? null}
-            onPreview={(v) => {
-              void vp.open(v);
-              setTab("post");
-            }}
             error={ctl.versionsError}
             busy={ctl.saving || busy}
-            onRestore={(v) => void restore(v)}
+            onSwitch={(v) => void switchVersion(v)}
             onRetry={ctl.retryVersions}
           />
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {vp.preview && (
-            <VersionPreviewBar
-              version={vp.preview.version}
-              busy={ctl.saving || busy}
-              onRestore={() => void restore(vp.preview!.version)}
-              onBack={vp.close}
-            />
-          )}
           <PostSheet caption={streaming ? "Writing · LinkedIn preview" : "Just now · LinkedIn preview"}>
-            {vp.preview ? (
-              <PostText text={vp.preview.text} caret={false} />
-            ) : isEditing && doc && version ? (
+            {isEditing && doc && version ? (
               <DocumentEditor
                 doc={doc}
                 saving={ctl.saving}
