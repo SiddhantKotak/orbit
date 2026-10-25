@@ -32,6 +32,8 @@ export type TurnContext = {
     /** A framework or template the user picked for this message, or null. */
     formatId: string | null;
   };
+  /** The angle the user picked from a presentOptions panel this turn, resolved from the stored call; else null. */
+  pickedAngle?: { question: string; label: string; brief: string } | null;
   writer: UIMessageStreamWriter | null;
   /** Specialist envelopes produced this turn, keyed by tool call id. */
   handoffs: Map<string, HandoffEnvelope>;

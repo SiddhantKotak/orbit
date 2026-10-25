@@ -91,6 +91,29 @@ function toolResultsThisTurn(prompt: Prompt): { toolName: string; toolCallId: st
   return out;
 }
 
+function systemText(prompt: Prompt): string {
+  const system = prompt.find((m) => m.role === "system");
+  return typeof system?.content === "string" ? system.content : "";
+}
+
+/** Three scripted angles for a post, as the picker tool takes them. The briefs are deliberately long enough to spot in a leak. */
+function scriptedAngles(topic: string, forOpenPost: boolean) {
+  const subject = topic.trim() || "this";
+  const options = [
+    { id: "myth", label: `The biggest myth about ${subject}`, explainer: "A contrarian opener earns attention and invites debate.", brief: `Argue that the most common belief about ${subject} is wrong. Open with the myth, then show what is true instead. Plain words, no invented personal facts.` },
+    { id: "practical", label: `A practical way to use ${subject} this week`, explainer: "Concrete steps are the most saved and shared kind of post.", brief: `Give three concrete steps a reader can take with ${subject} this week. One short block per step. No invented numbers or stories.` },
+    { id: "mistake", label: `The mistake teams make with ${subject}`, explainer: "Naming a costly mistake makes the lesson stick.", brief: `Describe the most common mistake with ${subject}, why it happens and the fix. Keep it general: no personal anecdotes unless the user gave one.` },
+  ];
+  return {
+    preamble: forOpenPost ? "Here are other ways to take this post." : `${subject} can support several strong posts, so the central claim will shape everything that follows.`,
+    question: forOpenPost ? "Which angle should this post take?" : `Which angle should the ${subject} post take?`,
+    options,
+    recommendedOptionId: "practical",
+    allowFreeInput: true,
+    freeInputPlaceholder: "Or tell me something else…",
+  };
+}
+
 /** The first line of the `<open_document>` in the system prompt, or null when no post is open. */
 function openDocumentFirstLine(prompt: Prompt): string | null {
   const system = prompt.find((m) => m.role === "system");
@@ -155,6 +178,9 @@ function route(opts: CallOptions): ScriptStep {
   }
   const last = results.at(-1);
   if (last) {
+    if (last.toolName === "createDocument" && systemText(opts.prompt).includes("<picked_angle>")) {
+      return { text: "Here's your first draft. What would you like to improve?" };
+    }
     if (last.toolName === "delegateWriting" && /\[e2e:needs-facts\]/.test(text)) {
       return { text: `Before I write this I need two facts only you have. ${SCRIPTED_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join(" ")}` };
     }
@@ -163,6 +189,20 @@ function route(opts: CallOptions): ScriptStep {
     }
     return { text: AFTER_TOOL[last.toolName] ?? "Done." };
   }
+  const angle = systemText(opts.prompt).includes("<picked_angle>");
+  const openLine = openDocumentFirstLine(opts.prompt);
+  if (angle && has.has("delegateWriting") && !openLine) {
+    const brief = /Writing brief for this angle:\n([\s\S]*?)\n<\/picked_angle>/.exec(systemText(opts.prompt))?.[1] ?? text;
+    return call("delegateWriting", { request: `Write a short LinkedIn post for the user. Follow this brief: ${brief}`.slice(0, 4_000), specialty: "post", personalDetails: "none", overrides: null, chosenHook: null });
+  }
+  if (angle && openLine) {
+    return call("updateDocument", { description: text.slice(0, 2_000), editRequirements: ["Take the picked angle"], editScope: "whole-document", restoreVersion: null });
+  }
+  if (!angle && has.has("presentOptions") && /\bdifferent angles\b/i.test(text) && openLine) {
+    return call("presentOptions", scriptedAngles("post", true));
+  }
+  const newTopic = !openLine && /\b(create|write|make)\b[^.]*\bpost on\s+(.+?)[.!?]*$/i.exec(text)?.[2];
+  if (newTopic && has.has("presentOptions")) return call("presentOptions", scriptedAngles(newTopic, false));
   if (/\bimages?\b/i.test(text) && /\bsuggest\b/i.test(text)) return call("suggestVisuals", { focusHint: null });
   if (/\b(image|picture)\b/i.test(text) && /\b(make|create|add)\b/i.test(text)) {
     return call("proposeVisual", { prompt: text.slice(0, 1_000), type: "general", aspect: null });
