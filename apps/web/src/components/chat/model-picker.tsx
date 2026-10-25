@@ -36,7 +36,7 @@ export function ModelPicker({ current, info, onChoose }: { current: string | nul
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button type="button" variant="ghost" size="sm" aria-label="AI model" data-model-pill className="h-[var(--composer-control)]" disabled={!info}>
+        <Button type="button" variant="ghost" size="sm" aria-label={`${label}, AI model`} data-model-pill className="h-[var(--composer-control)]" disabled={!info}>
           <span className="max-w-[9ch] truncate @md:max-w-none">{label}</span>
           <ChevronDown aria-hidden="true" className="size-3.5" />
         </Button>

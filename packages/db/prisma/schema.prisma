@@ -83,6 +83,7 @@ model Profile {
   knowledgeChunks     KnowledgeChunk[]
   backgroundJobs      BackgroundJob[]
   chats               Chat[]
+  researchBriefs      ResearchBrief[]
   documents           Document[]
   carousels           Carousel[]
   storageObjects      StorageObject[]
@@ -175,28 +176,28 @@ model Strategy {
 
 /// Presets have a null profileId and a unique slug; own/url styles belong to a profile.
 model VoiceStyle {
-  id          String    @id @default(cuid())
-  profile     Profile?  @relation("ProfileVoices", fields: [profileId], references: [id], onDelete: Cascade)
-  profileId   String?
-  slug        String?   @unique
-  kind        VoiceKind
-  name        String
-  tagline     String    @default("")
-  guide       String    @default("")
-  samplePosts String[]
+  id                String              @id @default(cuid())
+  profile           Profile?            @relation("ProfileVoices", fields: [profileId], references: [id], onDelete: Cascade)
+  profileId         String?
+  slug              String?             @unique
+  kind              VoiceKind
+  name              String
+  tagline           String              @default("")
+  guide             String              @default("")
+  samplePosts       String[]
   /// The compiled StyleProfile (packages/ai/src/style.ts), validated on write. Null for rows that only have a `guide`.
   styleProfile      Json?
-  profileVersion    Int         @default(0)
-  status            StyleStatus @default(READY)
+  profileVersion    Int                 @default(0)
+  status            StyleStatus         @default(READY)
   statusDetail      String?
-  analyzedPostCount Int         @default(0)
+  analyzedPostCount Int                 @default(0)
   analyzedAt        DateTime?
   corpusHash        String?
   versions          VoiceStyleVersion[]
   corpus            StyleCorpusPost[]
-  selectedBy  Profile[] @relation("SelectedVoice")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  selectedBy        Profile[]           @relation("SelectedVoice")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@index([profileId])
 }
@@ -306,23 +307,44 @@ enum ChatRole {
   ASSISTANT
 }
 
+/// A dated, sourced research run for one chat (Task W9). Items and exclusions are validated JSON; searchCount feeds the daily cap.
+model ResearchBrief {
+  id          String   @id @default(cuid())
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId   String
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId      String
+  topic       String
+  windowStart String
+  windowEnd   String
+  provider    String
+  items       Json
+  exclusions  Json
+  searchCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([profileId, createdAt])
+  @@index([chatId])
+}
+
 model Chat {
-  id                     String    @id
-  profile                Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id                     String          @id
+  profile                Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
   profileId              String
   userId                 String
-  title                  String    @default("New chat")
-  pinned                 Boolean   @default(false)
+  title                  String          @default("New chat")
+  pinned                 Boolean         @default(false)
   /// One post per chat, one chat per post.
-  documentId             String?   @unique
-  document               Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId             String?         @unique
+  document               Document?       @relation(fields: [documentId], references: [id], onDelete: SetNull)
   activeRunId            String?
   activeRunStartedAt     DateTime?
   activeRequestMessageId String?
   stopRequestedRunId     String?
-  lastActivityAt         DateTime  @default(now())
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  lastActivityAt         DateTime        @default(now())
+  researchBriefs         ResearchBrief[]
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
   deletedAt              DateTime?
   messages               Message[]
 

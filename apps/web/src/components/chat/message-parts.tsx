@@ -5,6 +5,7 @@ import { collapseToolRuns, parseOptionsPanel, stripCitations, parseProposal, typ
 import type { EditVisualOutput, ProposeVisualOutput, SuggestVisualsOutput } from "@brandloop/agent";
 import { cn } from "@brandloop/ui";
 import { AnalysisCard, analysisOf } from "./analysis-card";
+import { ResearchCard, researchOf } from "./research-card";
 import { DraftCard } from "./document-panel";
 import { HookCards, hookCardsOf } from "./hook-cards";
 import { ProposalCard } from "./proposal-card";
@@ -74,6 +75,10 @@ export function MessageParts({ message, streaming, optionAnswer = null }: { mess
     const a = analysisOf(p);
     return a ? [a] : [];
   });
+  const researches = (message.parts as ToolPartLike[]).flatMap((p) => {
+    const r = researchOf(p);
+    return r ? [r] : [];
+  });
   return (
     <>
       {items.map((it, i) => {
@@ -98,6 +103,9 @@ export function MessageParts({ message, streaming, optionAnswer = null }: { mess
             </p>
           )}
         </div>
+      ))}
+      {researches.map((r, i) => (
+        <ResearchCard key={i} research={r} />
       ))}
       {draft && <DraftCard fallback={draft} />}
       {analyses.map((a, i) => (

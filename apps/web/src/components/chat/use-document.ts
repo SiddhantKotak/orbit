@@ -178,7 +178,7 @@ export function useDocument(initial: PanelDoc | null) {
   const versionsKey = id ? `/api/documents/${enc(id)}/versions` : null;
   const versions = useSWR(versionsKey, fetchVersions, { revalidateOnFocus: false });
   const refreshVersions = versions.mutate;
-  // Any new version (stream, save, restore) refreshes the list.
+  // Any new version (stream, save, switch) refreshes the list.
   useEffect(() => {
     if (doc?.version) void refreshVersions();
   }, [doc?.version, refreshVersions]);
@@ -223,12 +223,12 @@ export function useDocument(initial: PanelDoc | null) {
     [id, apply],
   );
 
-  const restore = useCallback(
+  const switchTo = useCallback(
     async (version: number, expectedVersion: number): Promise<SaveResult> => {
       if (!id) return { ok: false, error: "This post isn't saved yet." };
       setSaving(true);
       try {
-        const res = await fetch(`/api/documents/${enc(id)}/restore`, {
+        const res = await fetch(`/api/documents/${enc(id)}/switch`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ version, expectedVersion }),
@@ -238,13 +238,13 @@ export function useDocument(initial: PanelDoc | null) {
           if (latest) apply((s) => withDocument(s, latest));
           return latest ? { ok: false, conflict: latest } : { ok: false, error: "This post changed. Reload and try again." };
         }
-        if (!res.ok) return { ok: false, error: await errorOf(res, "That version couldn't be restored. Try again.") };
+        if (!res.ok) return { ok: false, error: await errorOf(res, "That version couldn't be opened. Try again.") };
         const d = (await res.json()) as PanelDoc;
         apply((s) => withDocument(s, { id: d.id, title: d.title, version: d.version, currentVersion: d.currentVersion, text: stripCitations(d.text) }));
-        setAnnouncement(`Restored version ${d.currentVersion ?? d.version}.`);
+        setAnnouncement(`Version ${d.currentVersion ?? d.version}.`);
         return { ok: true, version: d.version };
       } catch {
-        return { ok: false, error: "That version couldn't be restored. Check your connection and try again." };
+        return { ok: false, error: "That version couldn't be opened. Check your connection and try again." };
       } finally {
         setSaving(false);
       }
@@ -278,7 +278,7 @@ export function useDocument(initial: PanelDoc | null) {
     close,
     refetch,
     save,
-    restore,
+    switchTo,
   };
 }
 

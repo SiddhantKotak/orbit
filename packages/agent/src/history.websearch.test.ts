@@ -54,7 +54,7 @@ describe("windowHistory and provider-executed web search", () => {
 
   it("drops past provider-executed steps but keeps the reply text", () => {
     const out = windowHistory(history());
-    expect(out[1]!.parts.some((p) => p.type === "tool-web_search")).toBe(false);
+    expect(out[1]!.parts.some((p) => (p.type as string) === "tool-web_search")).toBe(false);
     expect(out[1]!.parts).toContainEqual({ type: "text", text: "Here is what changed." });
   });
 

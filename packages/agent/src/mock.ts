@@ -1,4 +1,6 @@
 import type { AiClient } from "@brandloop/ai";
+import type { ResearchProvider } from "./research/provider";
+import { isTimely } from "./research/timely";
 import { renderBlocks, type WriterBlock } from "./writing/render";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
@@ -139,6 +141,7 @@ const AFTER_TOOL: Record<string, string> = {
   proposeVisual: "Here is the image. Check the prompt, then make it.",
   editVisual: "On it. The new image will appear in the panel.",
   analyzePost: "Here is the analysis. Fix the first item before anything else.",
+  researchTopic: "Here is what changed in the window: two dated items fit, and one older item was left out.",
   generateHooks: "Here are five hook options, each a different kind. Pick the one you like.",
 };
 
@@ -178,6 +181,9 @@ function route(opts: CallOptions): ScriptStep {
   }
   const last = results.at(-1);
   if (last) {
+    if (last.toolName === "researchTopic" && /\b(draft|write)\b/i.test(text)) {
+      return call("delegateWriting", { request: `Write a short LinkedIn post for the user from the research. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: null, overrides: null, chosenHook: null });
+    }
     if (last.toolName === "createDocument" && systemText(opts.prompt).includes("<picked_angle>\nQuestion asked:")) {
       return { text: "Here's your first draft. What would you like to improve?" };
     }
@@ -209,6 +215,13 @@ function route(opts: CallOptions): ScriptStep {
   }
   if (/\b(background|headline|colou?rs?)\b/i.test(text) && /\b(make|change|use)\b/i.test(text)) {
     return call("editVisual", { instruction: text.slice(0, 1_000) });
+  }
+  if (isTimely(text).timely) {
+    if (has.has("researchTopic")) return call("researchTopic", { query: text.slice(0, 300), window: null, site: null });
+    const sys = opts.prompt.find((m) => m.role === "system");
+    if (typeof sys?.content === "string" && sys.content.includes("This request needs current facts but web search is off")) {
+      return { text: "Web search is off, so I can't check this week's news. Turn it on and ask again." };
+    }
   }
   if (/\bremember\b/i.test(text)) {
     const fact = text.replace(/^.*?\bremember\b\s*(that\s+)?/i, "").replace(/[.!?\s]+$/, "") || text;
@@ -404,6 +417,69 @@ function mockHooks(prompt: string): { hooks: unknown[] } | null {
   };
 }
 
+/** The frozen search fixture for offline runs (Task W9): three real-looking results, one of them stale, and the URLs the provider "returned". */
+export const FAKE_CITATIONS = [
+  { url: "https://northwind.example/models", title: "Northwind Labs model update", snippet: null },
+  { url: "https://harbor.example/pricing", title: "Harbor Cloud pricing change", snippet: null },
+  { url: "https://quill.example/old", title: "Quill Software roundup", snippet: null },
+];
+export function fakeResearchProvider(): ResearchProvider {
+  return {
+    id: "fake",
+    async search(q) {
+      return { answer: `Results for: ${q.query.slice(0, 80)}`, citations: FAKE_CITATIONS };
+    },
+  };
+}
+
+const addDays = (ymd: string, n: number) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/** The scripted normalisation: two items inside the window, one before it, and one whose URL the provider never returned. */
+function mockNormalized(prompt: string): { items: unknown[] } | null {
+  const w = /<window start="(\d{4}-\d{2}-\d{2})" end="(\d{4}-\d{2}-\d{2})">/.exec(prompt);
+  if (!w || !prompt.includes("<results>")) return null;
+  const [, start, end] = w as unknown as [string, string, string];
+  return {
+    items: [
+      { published: end, eventDate: null, claim: "Northwind Labs released a smaller, cheaper model for small teams.", url: FAKE_CITATIONS[0]!.url, publisher: "Northwind Labs", role: "primary" },
+      { published: addDays(end, -1) < start ? start : addDays(end, -1), eventDate: null, claim: "Harbor Cloud changed its entry pricing.", url: FAKE_CITATIONS[1]!.url, publisher: "Harbor Cloud", role: "primary" },
+      { published: addDays(start, -4), eventDate: null, claim: "Quill Software summarised last month's launches.", url: FAKE_CITATIONS[2]!.url, publisher: "Quill Software", role: "corroboration" },
+      { published: end, eventDate: null, claim: "An unconfirmed rumour about a merger.", url: "https://invented.example/rumour", publisher: "Unknown", role: "primary" },
+    ],
+  };
+}
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** The scripted writer's post when it has a <research> block: it names the first item's date and cites it. */
+function mockResearchPost(prompt: string): unknown | null {
+  const block = /<research>\n([\s\S]*?)\n<\/research>/.exec(prompt)?.[1];
+  const first = block && /- r1 \[(\d+) (\w+)\]/.exec(block);
+  if (!first) return null;
+  const month = MONTH_NAMES.find((m) => m.startsWith(first[2]!)) ?? first[2]!;
+  return {
+    summary: "A short news post.",
+    findings: [],
+    recommendation: "Create the post.",
+    missingInput: [],
+    confidence: "medium",
+    parentAction: "create-document",
+    payload: {
+      readiness: "ready",
+      title: "This week in AI",
+      postType: "news",
+      blocks: [
+        { kind: "hook", lines: ["Small teams just got a cheaper model."] },
+        { kind: "prose", lines: [`On ${first[1]} ${month}, Northwind Labs released a smaller, cheaper model for small teams.`, "That lowers the cost of trying it."] },
+        { kind: "close", lines: ["Try it on one real task this week."] },
+      ],
+      facts: [{ text: `Northwind Labs released a smaller model on ${first[1]} ${month}.`, source: "research", ref: "r1" }],
+      missingFacts: [],
+      clarifyingQuestion: null,
+    },
+  };
+}
+
 /** Keyword routes, tried before CANNED: one schema can return a different canned output per scenario. */
 export const SCRIPTED_QUESTIONS = ["Who was your first hire, and when did you hire them?", "What changed for the team after they joined?"];
 const WALL =
@@ -488,6 +564,16 @@ export function scriptedAi(): AiClient {
       return "Mock chat";
     },
     async json({ schema, prompt }) {
+      const normalized = mockNormalized(prompt);
+      if (normalized) {
+        const parsed = schema.safeParse(normalized);
+        if (parsed.success) return parsed.data;
+      }
+      const researched = mockResearchPost(prompt);
+      if (researched) {
+        const parsed = schema.safeParse(researched);
+        if (parsed.success) return parsed.data;
+      }
       const hooks = mockHooks(prompt);
       if (hooks) {
         const parsed = schema.safeParse(hooks);

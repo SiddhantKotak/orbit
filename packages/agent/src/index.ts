@@ -73,6 +73,8 @@ export {
 export { applyProposal, ProposalError, type ProposalErrorCode } from "./proposals";
 export { chatError, chatErrorResponse, runChatTurn, STREAM_ERROR_TEXT, type ChatDeps } from "./turn";
 export { UI_MESSAGE_STREAM_HEADERS } from "ai";
+export { fakeResearchProvider } from "./mock";
+export { selectResearchProvider, type ResearchProvider } from "./research/provider";
 
 export { visualTools, suggestVisualsRun, ConceptSchema, VISUAL_TYPES, VISUAL_ASPECTS, NEEDS_POST as NEEDS_POST_FOR_VISUALS } from "./tools/visuals";
 export type { SuggestVisualsOutput, ProposeVisualOutput, EditVisualOutput, VisualConcept } from "./tools/visuals";

@@ -134,3 +134,53 @@ describe("delegateWriting (writer v2)", () => {
     expect(out.findings.some((f) => f.startsWith("Polished"))).toBe(false);
   });
 });
+
+const BRIEF = {
+  window: { start: "2026-10-19", end: "2026-10-22", label: "19-22 Oct" },
+  topic: "AI news",
+  provider: "fake",
+  searchCount: 3,
+  reused: false,
+  exclusions: [],
+  items: [
+    { id: "r1", published: "2026-10-21", eventDate: null, claim: "Northwind released a cheaper model.", url: "https://northwind.example/models", publisher: "Northwind", role: "primary" as const },
+    { id: "r2", published: "2026-10-20", eventDate: null, claim: "Harbor changed pricing.", url: "https://harbor.example/pricing", publisher: "Harbor", role: "primary" as const },
+  ],
+};
+const RBLOCKS: WriterBlock[] = [
+  { kind: "hook", lines: ["Small teams got a cheaper model."] },
+  { kind: "prose", lines: ["On 21 October, Northwind released a cheaper model."] },
+];
+
+describe("delegateWriting with research (W9)", () => {
+  it("shows the writer only the brief, appends a Sources line for cited items and leaves uncited ones out", async () => {
+    ctx.research.brief = BRIEF;
+    const ai = fakeAi(model({ facts: [{ text: "Northwind released a model on 21 October.", source: "research", ref: "r1" }] }, RBLOCKS));
+    ctx.ai = ai;
+    const out = await run({ request: "Write a short news post from the research." });
+    expect(ai.calls[0]!.prompt).toContain("<research>");
+    expect(ai.calls[0]!.prompt).toContain("r1 [21 Oct]");
+    expect(out.payload.draft).toMatch(/\n\nSources: Northwind \(21 Oct\) https:\/\/northwind\.example\/models$/);
+    expect(out.payload.draft).not.toContain("harbor.example");
+    expect(out.findings.join("\n")).not.toMatch(/date that matches no research item/i);
+  });
+
+  it("adds no Sources line when the post cites no research item", async () => {
+    ctx.research.brief = BRIEF;
+    ctx.ai = fakeAi(model({}, RBLOCKS));
+    const out = await run({ request: "Write a short news post from the research." });
+    expect(out.payload.draft).not.toContain("Sources:");
+  });
+
+  it("flags a date no research item has", async () => {
+    ctx.research.brief = BRIEF;
+    ctx.ai = fakeAi(model({}, [{ kind: "hook", lines: ["Big news."] }, { kind: "prose", lines: ["On 3 October, Northwind released a cheaper model."] }]));
+    const out = await run({ request: "Write a short news post from the research." });
+    expect(out.findings.join("\n")).toMatch(/date that matches no research item/i);
+  });
+
+  it("writes no Sources line without research", async () => {
+    ctx.ai = fakeAi(model());
+    expect((await run()).payload.draft).not.toContain("Sources:");
+  });
+});

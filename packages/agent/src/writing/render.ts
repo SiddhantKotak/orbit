@@ -20,3 +20,22 @@ export function renderBlocks(blocks: WriterBlock[], opts: { bullet: "-" | "•";
     .filter((b) => b.trim() !== "")
     .join("\n\n");
 }
+
+const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The post's Sources line, written by the server from cited research items only (design §6.1): the writer never types a URL.
+ * "Sources: OpenAI (21 Oct) https://…, Microsoft (19 Oct) https://…".
+ */
+export function renderSourcesBlock(
+  items: { id: string; publisher: string; url: string; published: string | null; eventDate: string | null }[],
+  cited: string[],
+): WriterBlock | null {
+  const used = items.filter((i) => cited.includes(i.id));
+  if (used.length === 0) return null;
+  const day = (i: (typeof used)[number]) => {
+    const d = i.eventDate ?? i.published;
+    return d ? ` (${Number(d.slice(8, 10))} ${MONTH[Number(d.slice(5, 7)) - 1]})` : "";
+  };
+  return { kind: "sources", lines: [`Sources: ${used.map((i) => `${i.publisher}${day(i)} ${i.url}`).join(", ")}`] };
+}

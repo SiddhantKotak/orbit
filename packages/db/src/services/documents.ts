@@ -39,9 +39,9 @@ export type DocumentSnapshot = {
   title: string;
   kind: "TEXT";
   status: "DRAFT";
-  /** The concurrency token (`Document.revision`): moves up on every save and restore. Clients echo it as `expectedVersion`. */
+  /** The concurrency token (`Document.revision`): moves up on every save and version switch. Clients echo it as `expectedVersion`. */
   version: number;
-  /** The number of the version whose text is current. A restore moves it back; the next save writes max + 1. */
+  /** The number of the version whose text is current. Switching versions moves it; the next save writes max + 1. */
   currentVersion: number;
   text: string;
   hook: string | null;
@@ -208,7 +208,7 @@ export async function listPosts(profileId: string, opts: { limit?: number } = {}
 type SaveInput = {
   text: string;
   title?: string;
-  /** Omitted keeps the current hook; null clears it (restores use this). */
+  /** Omitted keeps the current hook; null clears it (a version switch doesn't use this). */
   hook?: string | null;
   source: VersionSource;
   changeSummary?: string;
@@ -291,8 +291,8 @@ export async function listDocumentVersions(profileId: string, id: string): Promi
   return rows.map(({ text, ...r }) => ({ ...r, chars: text.length }));
 }
 
-/** Moves the current pointer to an old version. No row is written: history is untouched, the next save is max + 1. */
-export async function restoreDocumentVersion(
+/** Makes any saved version current (free switching, either direction). No row is written: history is untouched, the next save is max + 1. */
+export async function switchDocumentVersion(
   profileId: string,
   id: string,
   version: number,
@@ -315,16 +315,6 @@ export async function restoreDocumentVersion(
     }
     return (await snapshot(tx, profileId, id))!;
   });
-}
-
-/** One version's text and hook, for the read-only preview. */
-export async function getDocumentVersion(profileId: string, id: string, version: number): Promise<{ version: number; text: string; hook: string | null }> {
-  const row = await prisma.documentVersion.findFirst({
-    where: { version, document: { id, profileId, deletedAt: null } },
-    select: { version: true, text: true, hook: true },
-  });
-  if (!row) throw new DocumentError("not_found", "That version doesn't exist.");
-  return row;
 }
 
 export type DocumentListRow = Omit<DocumentSnapshot, "hook" | "kind">;
