@@ -17,6 +17,7 @@ import {
   createUIMessageStreamResponse,
   InvalidToolInputError,
   NoSuchToolError,
+  hasToolCall,
   stepCountIs,
   streamText,
   ToolCallRepairError,
@@ -38,6 +39,7 @@ import type { RunRegistry } from "./registry";
 import { titleChat } from "./title";
 import { isAbort } from "./tools/run";
 import { buildTools, type ChatUIMessage } from "./tools";
+import { resolveOptionPick } from "./tools/options";
 import { ActiveTaskSchema, type ActiveTask, type ChatRequestBody, type MessageMetadata } from "./types";
 
 export type ChatDeps = {
@@ -168,6 +170,16 @@ function failedOutput(output: unknown): boolean {
   if (!output || typeof output !== "object") return false;
   const o = output as { error?: unknown; status?: unknown };
   return typeof o.error === "string" || o.status === "needs-user-input";
+}
+
+/** The picker this reply left open, for the task ledger. */
+function pendingPicker(parts: Part[]): { id: string; question: string } | null {
+  for (const p of [...(parts as { type: string; toolCallId?: string; state?: string; output?: unknown }[])].reverse()) {
+    if (p.type !== "tool-presentOptions" || p.state !== "output-available" || typeof p.toolCallId !== "string") continue;
+    const question = (p.output as { question?: unknown } | undefined)?.question;
+    if (typeof question === "string") return { id: p.toolCallId, question };
+  }
+  return null;
 }
 
 /** The ledger's summary of each specialist handoff made this turn. */
@@ -314,7 +326,8 @@ export async function runChatTurn(
         instructions: verdict.ok ? instructions : "Reply with the fixed message only.",
         messages: modelMessages,
         tools,
-        stopWhen: stepCountIs(LIMITS.steps),
+        // A picker ends the turn: the user answers it, then the next turn writes.
+        stopWhen: [stepCountIs(LIMITS.steps), hasToolCall("presentOptions")],
         maxOutputTokens: LIMITS.maxOutputTokens,
         abortSignal: AbortSignal.any([controller.signal, AbortSignal.timeout(deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)]),
         // Another instance may have asked this run to stop (POST /api/chat/stop landed elsewhere).
@@ -372,7 +385,7 @@ export async function runChatTurn(
             ? { id: ctx.documentRef.current.id, title: ctx.documentRef.current.title }
             : null,
           flow: null,
-          picker: null,
+          picker: pendingPicker(parts),
           now: now(),
         };
         const activeTask = nextActiveTask(prevTask, turn, () => ctx.taskId);
@@ -422,6 +435,7 @@ export async function runChatTurn(
         flowType: body.flowType ?? null,
         flowStep: body.flowStep ?? null,
         uiAction: body.uiAction ?? null,
+        optionPick: body.optionPick ?? null,
       },
     });
 
@@ -472,6 +486,7 @@ export async function runChatTurn(
       },
       writer: null,
       handoffs: new Map(),
+      pickedAngle: resolveOptionPick(stored, body.optionPick),
       documentRef: { current: await getChatDocument(profileId, chatId) },
       documentContext: body.documentContext ?? null,
       visuals: deps.visuals ?? null,

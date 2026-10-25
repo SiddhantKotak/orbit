@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import useSWR from "swr";
 import { ArrowDown, SquarePen } from "lucide-react";
 import { toast } from "sonner";
-import { swapOpening, toolLabel, type ChatUIMessage, type HookCard, type PanelDoc } from "@brandloop/agent/client";
+import { openPanelOf, swapOpening, toolLabel, type ChatUIMessage, type HookCard, type PanelDoc } from "@brandloop/agent/client";
 import { Button, useMediaQuery } from "@brandloop/ui";
 import { PostsIcon } from "@brandloop/ui/icons";
 import type { VoiceOption } from "@/components/home/voice-picker";
@@ -19,6 +19,7 @@ import { HISTORY_KEY } from "./history-key";
 import { useChatSession } from "./use-chat-session";
 import { DESKTOP_PANEL, DocumentPanel, DocumentPanelContext } from "./document-panel";
 import { HookActionsContext } from "./hook-cards";
+import { OptionsPanel } from "./options-panel";
 import { QuickLinkChips } from "./quick-link-chips";
 import { useDocument } from "./use-document";
 
@@ -113,7 +114,7 @@ export function ChatView({
 
   const post = useDocument(initialDocument);
   const desktop = useMediaQuery(DESKTOP_PANEL);
-  const { messages, status, errorText, canRetry, notice, send, sendQuickLink, stop, retry } = useChatSession({
+  const { messages, status, errorText, canRetry, notice, send, sendQuickLink, sendOptionPick, stop, retry } = useChatSession({
     chatId,
     initialMessages,
     selections: {
@@ -225,6 +226,23 @@ export function ChatView({
     void sendQuickLink(key, prompt);
   }
 
+  // The options panel: the newest reply's unanswered picker. Closing it only hides it; a new picker shows again.
+  const [dismissedPicker, setDismissedPicker] = useState<string | null>(null);
+  const picker = !busy ? openPanelOf(messages) : null;
+  const pickerShown = picker && picker.pickerToolCallId !== dismissedPicker ? picker : null;
+
+  function pickOption(optionId: string) {
+    if (!pickerShown || busy) return;
+    const option = pickerShown.options.find((o) => o.id === optionId);
+    if (!option) return;
+    if (post.saving) {
+      toast(SAVING_FIRST);
+      return;
+    }
+    jumpToLatest();
+    void sendOptionPick(option.label, { pickerToolCallId: pickerShown.pickerToolCallId, optionId });
+  }
+
   /** "Use this hook": with a post open the opening is swapped and saved as a new version; otherwise a draft starts from it. */
   async function useHook(card: HookCard) {
     if (busy) return;
@@ -326,7 +344,17 @@ export function ChatView({
         data-composer-dock=""
       >
         <div className="mx-auto w-full max-w-[780px] pb-3 sm:pl-11 md:pb-0">
+          {pickerShown && (
+            <OptionsPanel
+              key={pickerShown.pickerToolCallId}
+              panel={pickerShown}
+              onPick={pickOption}
+              onClose={() => setDismissedPicker(pickerShown.pickerToolCallId)}
+              disabled={busy}
+            />
+          )}
           <ChatComposer
+            placeholder={pickerShown?.allowFreeInput ? pickerShown.freeInputPlaceholder : undefined}
             value={draft}
             onValueChange={setDraft}
             onSend={submit}

@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import type { ChatUIMessage } from "@brandloop/agent/client";
+import { panelsOf, type ChatUIMessage } from "@brandloop/agent/client";
 import { Button, cn } from "@brandloop/ui";
 import { CheckIcon, CopyIcon } from "@brandloop/ui/icons";
 import { AssistantAvatar } from "./assistant-avatar";
@@ -78,8 +78,11 @@ const Reply = memo(function Reply({
   live,
   arrive,
   footer,
+  answer = null,
 }: {
   message?: ChatUIMessage;
+  /** What the user answered to this reply's options panel (their pick's label or their own words), or null while open. */
+  answer?: string | null;
   live: boolean;
   arrive?: boolean;
   footer?: ReactNode;
@@ -92,7 +95,7 @@ const Reply = memo(function Reply({
       <div className="flex min-w-0 flex-1 flex-col gap-3 pt-0.5">
         <span className="sr-only">Orbit: </span>
         {live && !shown && <Thinking />}
-        {message && <MessageParts message={message} streaming={live} />}
+        {message && <MessageParts message={message} streaming={live} optionAnswer={answer} />}
         {footer}
         {copyable && <ReplyActions message={message!} />}
       </div>
@@ -143,7 +146,9 @@ export function MessageList({
     <ol className="flex flex-col gap-7" aria-label="Messages">
       {/* One array, so the thinking row and its reply (same key) are reconciled as one element. */}
       {[
-        ...shown.map((m) => (
+        ...shown.map((m) => {
+          const answer = m.role === "assistant" ? (panelsOf(messages, messages.indexOf(m)).at(-1)?.answer ?? null) : null;
+          return (
           <li key={keys.get(m.id) ?? m.id}>
             {m.role === "user" ? (
               <UserBubble message={m} arrive={!initialIds.has(m.id)} />
@@ -153,10 +158,12 @@ export function MessageList({
                 live={busy && m.id === last?.id}
                 arrive={!initialIds.has(m.id)}
                 footer={!busy && m.id === lastShown?.id ? followUps : undefined}
+                answer={answer}
               />
             )}
           </li>
-        )),
+          );
+        }),
         ...(waiting
           ? [
               <li key={waitingKey(messages) ?? "waiting"}>
