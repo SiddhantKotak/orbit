@@ -23,3 +23,4 @@ export * from "./services/carousels";
 export * from "./services/style-profile";
 export * from "./services/style-extract";
 export * from "./services/linkedin-export";
+export * from "./services/research";

@@ -41,6 +41,7 @@ export const TOOL_LABELS: Record<string, ToolLabel> = {
   proposeVisual: L("Preparing an image", "Image ready to make", "Couldn't prepare the image"),
   editVisual: L("Editing the image", "Started the edit", "Couldn't edit the image"),
   // Web (Task 11)
+  researchTopic: L("Researching with dated sources", "Researched with dated sources", "Couldn't research that"),
   web_search: L("Searching the web", "Searched the web", "Couldn't reach the web"),
 };
 
@@ -63,6 +64,7 @@ export const HIDDEN_OUTPUT_TOOLS: ReadonlySet<string> = new Set([
   "generateHooks",
   "presentOptions",
   "analyzePost",
+  "researchTopic",
 ]);
 
 const ERROR_TEXT = /^\s*(Failed|Refused|⚠|EDIT_REQUIREMENTS_MISSED:|STALE_DOCUMENT:|STALE_SELECTED_PASSAGE:|EXISTING_POST:)/;

@@ -15,6 +15,8 @@ export type Grounding = {
   style: { block: string; ref: { voiceStyleId: string; profileVersion: number } | null; bullet: "-" | "•" };
   /** The rules in force this turn: the user's hard rules, soft rules, the style's targets, and what was dropped. */
   rules: EffectiveRules;
+  /** The research brief as the writer sees it (Task W9), or null when this turn did no research. */
+  research: string | null;
   /** The compiled profile behind `style`, when there is one. */
   styleProfile: StyleProfile | null;
   writingRules: string;
@@ -102,6 +104,8 @@ export async function buildGrounding(input: {
   embedder: Embedder | null;
   /** Overrides already accepted for this turn (see acceptOverrides). */
   turn?: Partial<TurnOverrides>;
+  /** The brief text for the writer's `<research>` block. */
+  research?: string | null;
 }): Promise<Grounding> {
   const { profileId } = input;
   const docs = await listMemory(profileId);
@@ -124,6 +128,7 @@ export async function buildGrounding(input: {
       bullet: profile?.referencePosts.some((r) => /^\s*•/m.test(r.text)) ? "•" : "-",
     },
     rules,
+    research: input.research ?? null,
     styleProfile: profile,
     writingRules: memory("writing/rules"),
     identity: IDENTITY_KEYS.map(memory).filter(Boolean).join("\n\n"),
@@ -159,6 +164,7 @@ export function renderGrounding(g: Grounding): string {
     block("identity", g.identity, GROUNDING_CAPS.identity),
     block("strategy", g.strategy, GROUNDING_CAPS.strategy),
     `<knowledge>\n${knowledgeBlock(g.knowledge)}\n</knowledge>`,
+    ...(g.research ? [`<research>\n${defuseTags(cap(g.research, 4_000))}\n</research>`] : []),
   ].join("\n");
 }
 
@@ -167,5 +173,5 @@ export function renderGrounding(g: Grounding): string {
  * example posts carry numbers that are not the user's).
  */
 export function provenanceText(g: Grounding, request: string): string {
-  return [request, g.writingRules, g.identity, g.strategy, ...g.knowledge.map((k) => k.text)].join("\n");
+  return [request, g.writingRules, g.identity, g.strategy, ...g.knowledge.map((k) => k.text), g.research ?? ""].join("\n");
 }

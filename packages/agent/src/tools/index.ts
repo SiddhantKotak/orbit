@@ -3,6 +3,7 @@ import type { TurnContext } from "../context";
 import type { ChatDataParts, MessageMetadata } from "../types";
 import { delegateTools } from "./delegate";
 import { analyzeTools } from "./analyze";
+import { researchTools } from "./research";
 import { documentTools } from "./documents";
 import { hookTools } from "./hooks";
 import { knowledgeTools } from "./knowledge";
@@ -20,9 +21,11 @@ function baseTools(ctx: TurnContext) {
  * user has web search on and the caller supplies the tool. Later tasks add their groups here.
  */
 export function buildTools(ctx: TurnContext, opts: { webSearchTool?: Tool | null } = {}) {
-  const tools: ReturnType<typeof baseTools> & Partial<ReturnType<typeof visualTools>> & { web_search?: Tool } = baseTools(ctx);
+  // Web access is `researchTopic` (dated, sourced, windowed); the provider's own `web_search` is no longer given to the model.
+  const tools: ReturnType<typeof baseTools> & Partial<ReturnType<typeof researchTools>> & Partial<ReturnType<typeof visualTools>> = baseTools(ctx);
   if (ctx.visuals) Object.assign(tools, visualTools(ctx));
-  if (ctx.selections.webSearchEnabled && opts.webSearchTool) tools.web_search = opts.webSearchTool;
+  if (ctx.selections.webSearchEnabled && ctx.research.provider) Object.assign(tools, researchTools(ctx));
+  void opts;
   return tools;
 }
 

@@ -34,7 +34,7 @@ describe("image tools: availability", () => {
     expect(Object.keys(tools(await testContext())).filter((n) => /visual/i.test(n))).toEqual([]);
     const names = Object.keys(tools(ctx));
     expect(names).toEqual(expect.arrayContaining(["suggestVisuals", "proposeVisual", "editVisual"]));
-    expect(names.filter((n) => /^generate/i.test(n))).toEqual([]);
+    expect(names.filter((n) => /^generate(?!Hooks)/i.test(n))).toEqual([]);
     // the deps the tools get cannot make or pay for an image at all
     expect(Object.keys(deps()).sort()).toEqual(["latestAttached", "startEdit"]);
   });

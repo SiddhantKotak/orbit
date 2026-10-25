@@ -26,6 +26,8 @@ import {
   type Tool,
   type UIMessageStreamWriter,
 } from "ai";
+import type { ResearchProvider } from "./research/provider";
+import { isTimely } from "./research/timely";
 import { randomUUID } from "node:crypto";
 import type { TurnContext, VisualsToolDeps } from "./context";
 import { windowHistory } from "./history";
@@ -50,6 +52,8 @@ export type ChatDeps = {
   /** Runs work after the response is sent (Next's `after`). */
   after: (fn: () => Promise<void>) => void;
   webSearchTool?: Tool | null;
+  /** Dated research (Task W9). Null or absent: the web is not searched. */
+  research?: ResearchProvider | null;
   /** Image tools (suggest, propose, edit). Null or absent: the tools are not offered. */
   visuals?: VisualsToolDeps | null;
   /** Moderation, per-profile rate limit and daily cost cap. Absent: no checks. */
@@ -126,7 +130,7 @@ function toolErrorText(err: unknown): string | null {
 }
 
 /** Our tools report expected failures as strings; anything they throw is tagged so the stream can tell it from a model failure. */
-function tagToolErrors<T extends Record<string, unknown>>(tools: T): T {
+export function tagToolErrors<T extends Record<string, unknown>>(tools: T): T {
   const out: Record<string, unknown> = {};
   for (const [name, t] of Object.entries(tools)) {
     const exec = (t as { execute?: (...a: unknown[]) => unknown }).execute;
@@ -331,8 +335,10 @@ export async function runChatTurn(
         maxOutputTokens: LIMITS.maxOutputTokens,
         abortSignal: AbortSignal.any([controller.signal, AbortSignal.timeout(deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)]),
         // Another instance may have asked this run to stop (POST /api/chat/stop landed elsewhere).
-        prepareStep: async () => {
+        prepareStep: async ({ stepNumber }) => {
           if (await isStopRequested(chatId, runId).catch(() => false)) controller.abort();
+          // Server-decided research: the first step is a researchTopic call, whatever the model would have chosen.
+          if (stepNumber === 0 && ctx.research.required && "researchTopic" in tools) return { toolChoice: { type: "tool" as const, toolName: "researchTopic" } } as never;
           return {};
         },
         onError: ({ error }) => {
@@ -491,6 +497,14 @@ export async function runChatTurn(
       documentContext: body.documentContext ?? null,
       visuals: deps.visuals ?? null,
       now,
+      research: {
+        provider: deps.research ?? null,
+        brief: null,
+        calls: 0,
+        // The first step must research when the web is on, a provider exists and the request is about current events. An
+        // angle pick is not: its label can say "this week" without the post needing news.
+        required: Boolean(deps.research) && body.webSearchEnabled && !resolveOptionPick(stored, body.optionPick) && isTimely(userText).timely,
+      },
       deadline: new Date(Date.now() + (deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)),
     };
     const tools = tagToolErrors(buildTools(ctx, { webSearchTool: deps.webSearchTool }));
