@@ -1,5 +1,7 @@
 import type { AiClient, Embedder } from "@brandloop/ai";
 import type { UIMessageStreamWriter } from "ai";
+import type { ResearchBrief } from "./research/brief";
+import type { ResearchProvider } from "./research/provider";
 import type { HandoffEnvelope } from "./specialists/envelope";
 
 export type OpenDocument = { id: string; title: string; version: number; text: string };
@@ -35,6 +37,8 @@ export type TurnContext = {
   /** The chat's post: loaded at the start of the turn, replaced when a tool creates or edits it. */
   documentRef: { current: OpenDocument | null };
   now: () => Date;
+  /** Dated research (Task W9): the provider, the newest brief of this turn, how many calls were made, and whether the first step must research. */
+  research: { provider: ResearchProvider | null; brief: ResearchBrief | null; calls: number; required: boolean };
   /** When the turn is aborted. The polish pass skips its model repair in the last 20 s. */
   deadline: Date;
 };

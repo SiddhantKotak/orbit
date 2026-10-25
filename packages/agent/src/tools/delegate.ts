@@ -5,7 +5,9 @@ import { frameData, type DataSource } from "../data";
 import { bannedWordsFromRules, mergeChecks, runDeterministicChecks, runWritingChecks } from "../specialists/checks";
 import { planHasList, renderFormatBlock, selectFormat } from "../writing/format";
 import { lintPost, type Violation } from "../writing/lint";
+import { renderBrief, BRIEF_CHARS } from "../research/brief";
 import { polishDraft, polishSummary, polishText } from "../writing/polish";
+import { renderBlocks, renderSourcesBlock } from "../writing/render";
 import { acceptOverrides, resolveRules, type TurnOverrides } from "../writing/rules";
 import { stampEnvelope, type FinalReview, type HandoffEnvelope, type PostWriting } from "../specialists/envelope";
 import { buildGrounding, provenanceText, renderGrounding } from "../specialists/grounding";
@@ -85,7 +87,11 @@ export async function delegateWritingRun(
       writingStyleId: ctx.selections.writingStyleId,
       embedder: ctx.embedder,
       turn: accepted,
+      research: ctx.research.brief ? renderBrief(ctx.research.brief, BRIEF_CHARS.writer) : null,
     });
+    const research = ctx.research.brief;
+    // A post that uses research ends with a Sources line, so links in that last block are expected (design §6.1, user decision).
+    if (research && research.items.length > 0) grounding.rules.hard.sourcesInPost = true;
     const request = briefFor(input, personal, accepted);
     const format = selectFormat({ selectedFormatId: ctx.selections.formatId, postType: null, style: grounding.styleProfile, request: input.request });
     // A new post: there is no open document (see the short-circuit above), so no source revision either.
@@ -104,11 +110,19 @@ export async function delegateWritingRun(
     const output = res.output;
     let payload = output.payload;
     const extra: string[] = [];
+    if (payload.readiness === "ready" && payload.draft && research && payload.blocks?.length && !grounding.rules.hard.forbidLinks) {
+      const cited = (payload.facts ?? []).filter((f) => f.source === "research" && f.ref).map((f) => f.ref!);
+      const sources = renderSourcesBlock(research.items, cited);
+      if (sources) {
+        const blocks = [...payload.blocks.filter((b) => b.kind !== "sources"), sources];
+        payload = { ...payload, blocks, draft: renderBlocks(blocks, { bullet: grounding.style.bullet, numbered: true }) };
+      }
+    }
     if (payload.readiness === "ready" && payload.draft) {
       const lintCtx = {
         postType: payload.postType ?? null,
         groundingText: provenanceText(grounding, input.request),
-        researchDates: null,
+        researchDates: research ? research.items.flatMap((i) => [i.published, i.eventDate]).filter((d): d is string => Boolean(d)) : null,
         personalDetails: personal,
         expectList: format.source === "picked" && planHasList(format.plan),
       };

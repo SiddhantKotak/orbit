@@ -1,3 +1,4 @@
+import { isTimely } from "./research/timely";
 import { GOALS, type Goal } from "@brandloop/ai";
 import { getSelectedVoice, getStrategy, listMemory, prisma, renderMemoryIndex } from "@brandloop/db";
 import type { TurnContext } from "./context";
@@ -12,7 +13,7 @@ export type PromptInput = {
   writingStyleName: string | null;
   memoryIndex: string;
   activeTask: ActiveTask | null;
-  selections: { knowledge: { id: string; title: string }[]; webSearchEnabled: boolean; quickLinkKey: string | null };
+  selections: { knowledge: { id: string; title: string }[]; webSearchEnabled: boolean; quickLinkKey: string | null; timelyBlocked?: boolean };
   document: { id: string; title: string; version: number; text: string } | null;
   skills: { name: string; description: string }[];
 };
@@ -44,7 +45,7 @@ export const STATIC_PREFIX = `You are Orbit's writing partner for one person's L
 - Feedback on a post (the open one, or a draft the user pasted): call analyzePost, with postContent set to the pasted text when there is one. The user sees the analysis as a card, so don't repeat it: give one sentence on the first fix. Never put a nit in the top fixes. Feedback on the open post before publishing, with the rule checks: delegateEditing.
 - Changes to the open post: updateDocument, or proposeDocumentEdits to suggest a new version of one passage the user can apply. Earlier versions: getPostVersions, then updateDocument with restoreVersion.
 - Durable facts about the user and anything they ask you to remember: saveMemory. Corrections: editMemory (readMemory first so the find text matches exactly). Never save your own words, your questions or the user's task requests as memory, and never a fact that only a writing request or a test implies ("write a post for founders hiring their first engineer" says nothing about the user). The server refuses such facts.
-- Web search only when it is on and the answer needs current facts.
+- Current events and "this week" questions: researchTopic (web search must be on; the server may already have run it as the first step). Name the dates of the items you use, say what was excluded and why in one line, and never state current events from memory. A post that uses research gets its Sources line from the server.
 - In a guided flow, follow the <flow> step guide. To ask the user to choose, call presentOptions and stop; never list the same options in text too.
 - updateContentStrategy only after the user picked an option that applies the change.
 - At most one call per specialist per request, unless the first one returned missingInput.
@@ -99,6 +100,9 @@ function composerBlock(input: PromptInput): string {
     lines.push("No knowledge items selected.");
   }
   lines.push(webSearchEnabled ? "Web search is on." : "Web search is off. Don't search the web or offer to.");
+  if (input.selections.timelyBlocked) {
+    lines.push("This request needs current facts but web search is off. Reply that web search is off, so you can't check this week's news, and ask them to turn it on and ask again. Don't state current events and don't write about them.");
+  }
   if (quickLinkKey) lines.push(`Quick link: ${quickLinkKey}`);
   return lines.join("\n");
 }
@@ -174,6 +178,7 @@ export async function loadPromptInput(ctx: TurnContext, activeTask: ActiveTask |
       knowledge,
       webSearchEnabled: ctx.selections.webSearchEnabled,
       quickLinkKey: ctx.selections.quickLinkKey,
+      timelyBlocked: !ctx.selections.webSearchEnabled && isTimely(ctx.userText).timely,
     },
     document: ctx.documentRef.current,
     skills: [],

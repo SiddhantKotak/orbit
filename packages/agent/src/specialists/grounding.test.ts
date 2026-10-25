@@ -21,6 +21,7 @@ const empty: Grounding = {
   style: { block: "", ref: null, bullet: "-" },
   rules: resolveRules({ userRulesMarkdown: "", style: null, turn: {} }),
   styleProfile: null,
+  research: null,
   writingRules: "",
   identity: "",
   strategy: "",

@@ -72,3 +72,5 @@ export {
 export { applyProposal, ProposalError, type ProposalErrorCode } from "./proposals";
 export { chatError, chatErrorResponse, runChatTurn, STREAM_ERROR_TEXT, type ChatDeps } from "./turn";
 export { UI_MESSAGE_STREAM_HEADERS } from "ai";
+export { fakeResearchProvider } from "./mock";
+export { selectResearchProvider, type ResearchProvider } from "./research/provider";

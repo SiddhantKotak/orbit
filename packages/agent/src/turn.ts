@@ -25,6 +25,8 @@ import {
   type Tool,
   type UIMessageStreamWriter,
 } from "ai";
+import type { ResearchProvider } from "./research/provider";
+import { isTimely } from "./research/timely";
 import { randomUUID } from "node:crypto";
 import type { TurnContext } from "./context";
 import { windowHistory } from "./history";
@@ -46,6 +48,8 @@ export type ChatDeps = {
   /** Runs work after the response is sent (Next's `after`). */
   after: (fn: () => Promise<void>) => void;
   webSearchTool?: Tool | null;
+  /** Dated research (Task W9). Null or absent: the web is not searched. */
+  research?: ResearchProvider | null;
   now?: () => Date;
   generateId?: () => string;
   /** Whole-turn deadline; past it the turn is aborted and its partial reply saved. Default 285 s (route max 300 s). */
@@ -299,8 +303,10 @@ export async function runChatTurn(
         maxOutputTokens: LIMITS.maxOutputTokens,
         abortSignal: AbortSignal.any([controller.signal, AbortSignal.timeout(deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)]),
         // Another instance may have asked this run to stop (POST /api/chat/stop landed elsewhere).
-        prepareStep: async () => {
+        prepareStep: async ({ stepNumber }) => {
           if (await isStopRequested(chatId, runId).catch(() => false)) controller.abort();
+          // Server-decided research: the first step is a researchTopic call, whatever the model would have chosen.
+          if (stepNumber === 0 && ctx.research.required && "researchTopic" in tools) return { toolChoice: { type: "tool" as const, toolName: "researchTopic" } } as never;
           return {};
         },
         onError: ({ error }) => {
@@ -445,6 +451,13 @@ export async function runChatTurn(
       documentRef: { current: await getChatDocument(profileId, chatId) },
       documentContext: body.documentContext ?? null,
       now,
+      research: {
+        provider: deps.research ?? null,
+        brief: null,
+        calls: 0,
+        // The first step must research when the web is on, a provider exists and the request is about current events.
+        required: Boolean(deps.research) && body.webSearchEnabled && isTimely(userText).timely,
+      },
       deadline: new Date(Date.now() + (deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)),
     };
     const tools = tagToolErrors(buildTools(ctx, { webSearchTool: deps.webSearchTool }));
