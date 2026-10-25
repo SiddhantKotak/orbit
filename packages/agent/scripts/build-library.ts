@@ -4,8 +4,8 @@
  * `--dry-run` swaps in a scripted client and makes no network calls. `--limit N` caps clusters (smoke runs).
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { createAiClient, type AiClient } from "@brandloop/ai";
-import { buildLibrary, clusterRows, rowsFromCsv, type RefRow } from "../src/library/build";
+import { createAiClient, createEmbedder, type AiClient } from "@brandloop/ai";
+import { buildLibrary, clusterByEmbedding, embeddingCostUsd, rowsFromCsv, type RefRow } from "../src/library/build";
 import { presetStyles } from "../src/library/presets";
 
 const arg = (name: string): string | undefined => {
@@ -35,6 +35,21 @@ function scriptedClient(): AiClient {
   };
 }
 
+/** Offline stand-in embedder: hashed bag-of-words vectors, so reworded duplicates still land close together. */
+function hashedEmbed(texts: string[]): Promise<number[][]> {
+  return Promise.resolve(
+    texts.map((t) => {
+      const v = new Array<number>(256).fill(0);
+      for (const w of t.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) {
+        let h = 5381;
+        for (const c of w) h = (h * 33 + c.codePointAt(0)!) >>> 0;
+        v[h % 256]! += 1;
+      }
+      return v;
+    }),
+  );
+}
+
 async function main() {
   const csv = arg("csv");
   if (!csv) throw new Error("--csv <path> is required");
@@ -44,13 +59,22 @@ async function main() {
   const maxUsd = Number(arg("max-usd") ?? 5);
   const limit = arg("limit") ? Number(arg("limit")) : undefined;
 
-  let rows: RefRow[] = rowsFromCsv(readFileSync(csv, "utf8"));
-  console.log(`${rows.length} usable rows, ${clusterRows(rows).length} clusters${dry ? " (dry run)" : ""}`);
-  if (limit) rows = clusterRows(rows).slice(0, limit).flat();
+  const target = Number(arg("target") ?? 300);
+  const rows: RefRow[] = rowsFromCsv(readFileSync(csv, "utf8"));
+  const embedUsd = dry ? 0 : embeddingCostUsd(rows.map((r) => r.content));
+  const embedder = dry ? hashedEmbed : (t: string[]) => createEmbedder().embed(t);
+  let clusters = await clusterByEmbedding(rows, embedder, target);
+  console.log(`${rows.length} usable rows -> ${clusters.length} clusters (target ${target}); embeddings ~$${embedUsd.toFixed(4)}${dry ? " (dry run)" : ""}`);
+  const per = new Map<string, number>();
+  for (const c of clusters) per.set(`${c[0]!.type.toLowerCase()}/${c[0]!.category.toLowerCase()}`, (per.get(`${c[0]!.type.toLowerCase()}/${c[0]!.category.toLowerCase()}`) ?? 0) + 1);
+  for (const [k, n] of [...per].sort()) console.log(`  ${k}: ${n}`);
+  if (limit) clusters = clusters.slice(0, limit);
 
   const ai = dry ? scriptedClient() : createAiClient();
   const { templates, dropped, usd } = await buildLibrary({
-    rows,
+    rows: [],
+    clusters,
+    baseUsd: embedUsd,
     ai,
     maxUsd,
     concurrency: dry ? 1 : 6,

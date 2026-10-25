@@ -66,6 +66,65 @@ export function clusterRows(rows: RefRow[], threshold = 0.6): RefRow[][] {
   return clusters.map((c) => c.rows);
 }
 
+const norm = (v: number[]): number[] => {
+  const len = Math.sqrt(v.reduce((a, x) => a + x * x, 0)) || 1;
+  return v.map((x) => x / len);
+};
+const dot = (a: number[], b: number[]): number => {
+  let t = 0;
+  for (let i = 0; i < a.length; i++) t += a[i]! * b[i]!;
+  return t;
+};
+
+/**
+ * Meaning-based clustering: embeds each row's content, then repeatedly merges the globally most similar pair of
+ * clusters (centroid cosine) that share a type and category, until `target` clusters remain (or no mergeable pair is left).
+ */
+export async function clusterByEmbedding(rows: RefRow[], embed: (texts: string[]) => Promise<number[][]>, target: number): Promise<RefRow[][]> {
+  if (rows.length === 0) return [];
+  const vecs = (await embed(rows.map((r) => r.content))).map(norm);
+  if (vecs.length !== rows.length) throw new Error("embedder returned the wrong number of vectors");
+  const key = rows.map((r) => `${kind(r.type)}|${r.category.trim().toLowerCase()}`);
+  const members: (number[] | null)[] = rows.map((_, i) => [i]);
+  const cent: number[][] = vecs.map((v) => v.slice());
+  const sum: number[][] = vecs.map((v) => v.slice());
+  const best = new Array<{ j: number; s: number }>(rows.length);
+  const nearest = (i: number) => {
+    let b = { j: -1, s: -Infinity };
+    for (let j = 0; j < rows.length; j++) {
+      if (j === i || !members[j] || key[j] !== key[i]) continue;
+      const s = dot(cent[i]!, cent[j]!);
+      if (s > b.s) b = { j, s };
+    }
+    return b;
+  };
+  for (let i = 0; i < rows.length; i++) best[i] = nearest(i);
+  let count = rows.length;
+  while (count > Math.max(1, target)) {
+    let a = -1;
+    for (let i = 0; i < rows.length; i++) if (members[i] && best[i]!.j >= 0 && (a < 0 || best[i]!.s > best[a]!.s)) a = i;
+    if (a < 0) break;
+    const b = best[a]!.j;
+    members[a] = [...members[a]!, ...members[b]!];
+    members[b] = null;
+    sum[a] = sum[a]!.map((x, k) => x + sum[b]![k]!);
+    cent[a] = norm(sum[a]!);
+    count--;
+    for (let i = 0; i < rows.length; i++) {
+      if (!members[i]) continue;
+      if (i === a || best[i]!.j === a || best[i]!.j === b) best[i] = nearest(i);
+      else if (key[i] === key[a]) {
+        const s = dot(cent[i]!, cent[a]!);
+        if (s > best[i]!.s) best[i] = { j: a, s };
+      }
+    }
+  }
+  return members.filter((m): m is number[] => m !== null).map((m) => m.sort((x, y) => x - y).map((i) => rows[i]!));
+}
+
+/** Embedding price for text-embedding-3-small, dollars per million tokens; tokens estimated as chars / 4. */
+export const embeddingCostUsd = (texts: string[]): number => (texts.reduce((a, t) => a + t.length, 0) / 4) * 0.02 / 1e6;
+
 export const RewriteSchema = z.object({
   title: z.string().min(3).max(80),
   skeleton: z.string().min(10).max(2500),
@@ -121,15 +180,19 @@ export type BuildProgress = { done: number; total: number; kept: number; dropped
 
 export async function buildLibrary(opts: {
   rows: RefRow[];
+  /** Pre-built clusters (e.g. from clusterByEmbedding); defaults to clusterRows(rows). */
+  clusters?: RefRow[][];
+  /** Spend already incurred (embeddings), counted toward maxUsd. */
+  baseUsd?: number;
   ai: AiClient;
   maxUsd: number;
   concurrency?: number;
   onProgress?: (p: BuildProgress) => void;
 }): Promise<{ templates: SeedTemplate[]; dropped: number; usd: number }> {
-  const clusters = clusterRows(opts.rows);
+  const clusters = opts.clusters ?? clusterRows(opts.rows);
   const templates: SeedTemplate[] = [];
   let dropped = 0;
-  let micro = 0;
+  let micro = (opts.baseUsd ?? 0) * 1e6;
   let done = 0;
   const width = Math.max(1, opts.concurrency ?? 1);
   const cost = (i: number, o: number) => {

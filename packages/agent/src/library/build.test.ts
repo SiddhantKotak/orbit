@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AiClient } from "@brandloop/ai";
 import { STYLE_SCHEMA_VERSION } from "@brandloop/ai";
-import { buildLibrary, clusterRows, ngramSimilarity, parseCsv, rowsFromCsv, type RefRow } from "./build";
+import { buildLibrary, clusterByEmbedding, clusterRows, ngramSimilarity, parseCsv, rowsFromCsv, type RefRow } from "./build";
 import { presetStyles } from "./presets";
 
 const row = (title: string, content: string, type = "hook", category = "educational"): RefRow => ({ title, type, category, description: "", content });
@@ -111,5 +111,32 @@ describe("csv and presets", () => {
       expect(p.profile.referencePosts).toHaveLength(3);
       expect(p.profile.source.kind).toBe("preset");
     }
+  });
+});
+
+describe("clusterByEmbedding", () => {
+  // Fake embedder: the first word picks the axis, so reworded rows sharing it are near-identical.
+  const axes = ["alpha", "beta", "gamma", "delta"];
+  const embed = async (texts: string[]) => texts.map((t, i) => [...axes.map((a) => (t.startsWith(a) ? 1 : 0)), i * 0.001]);
+  const rows = [
+    row("1", "alpha one worded this way", "hook", "x"),
+    row("2", "alpha one phrased otherwise", "hook", "x"),
+    row("3", "beta something else", "hook", "x"),
+    row("4", "alpha one worded this way", "post", "x"),
+    row("5", "alpha one worded this way", "hook", "y"),
+    row("6", "gamma more", "hook", "y"),
+  ];
+
+  it("merges reworded rows and respects the target exactly", async () => {
+    const out = await clusterByEmbedding(rows, embed, 5);
+    expect(out).toHaveLength(5);
+    expect(out.find((c) => c.length === 2)!.map((r) => r.title)).toEqual(["1", "2"]);
+    expect(await clusterByEmbedding(rows, embed, 4)).toHaveLength(4);
+  });
+
+  it("never merges across type or category", async () => {
+    const out = await clusterByEmbedding(rows, embed, 1);
+    expect(out).toHaveLength(3);
+    for (const c of out) expect(new Set(c.map((r) => `${r.type}|${r.category}`)).size).toBe(1);
   });
 });
