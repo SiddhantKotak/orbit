@@ -26,7 +26,7 @@ test("a new carousel saves, reopens by URL and shows on the posts board", async 
   await expect(page.locator("[data-slide-row]")).toHaveCount(5, { timeout: 30_000 });
 
   await page.getByLabel("Slide 1 title").fill("Saved carousel headline");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page).toHaveURL(/\/posts\/carousel\/[a-z0-9]+$/, { timeout: 15_000 });
   await expect(page.getByTestId("carousel-save-note")).toContainText("Saved to your posts");
   const id = new URL(page.url()).pathname.split("/").pop()!;

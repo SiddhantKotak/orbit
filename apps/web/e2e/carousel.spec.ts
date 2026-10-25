@@ -114,13 +114,12 @@ test("carousel studio: generate, edit, reorder, export, restore", async ({ page 
   expect(bytes.includes(Buffer.from("/DCTDecode"))).toBe(true); // JPEG pages
   await expect(page.getByText(/flattens each slide into an image/)).toBeVisible();
 
-  // The browser draft survives a reload, under this profile's key with no source post.
-  await page.waitForTimeout(500);
+  // Edits autosave: the carousel gets its own URL, replaces the browser draft, and reopens with its slides.
+  await expect(page).toHaveURL(/\/posts\/carousel\/[a-z0-9]+$/, { timeout: 15_000 });
+  await expect(page.getByTestId("carousel-save-note")).toContainText("Saved to your posts");
   const keys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("orbit-carousel-draft")));
-  expect(keys).toHaveLength(1);
-  expect(keys[0]).toMatch(/^orbit-carousel-draft:.+/);
+  expect(keys).toHaveLength(0);
   await page.reload();
-  // The draft is read after hydration, which a dev server can take a while to reach.
   await expect(rows(page)).toHaveCount(6, { timeout: 15_000 });
 
   // Accessibility and layout, dark and light; screenshots when SHOTS=1.
@@ -147,6 +146,7 @@ test("carousel studio: generate, edit, reorder, export, restore", async ({ page 
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${SHOTS}/carousel-${w}-${scheme}.png`, fullPage: true, animations: "disabled" });
     }
+    await page.goto("/posts/carousel/new");
     await clearDraft(page);
     await page.reload();
     await page.setViewportSize({ width: 1440, height: 900 });

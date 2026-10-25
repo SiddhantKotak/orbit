@@ -97,6 +97,7 @@ export function CarouselStudio({
   const lastSaved = useRef<string | null>(saved ? contentJson(saved.state) : null);
   const saving = useRef<Promise<boolean> | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error" | "conflict">(saved ? "saved" : "idle");
+  const [attached, setAttached] = useState(Boolean(saved && source));
   const [persisted, setPersisted] = useState(Boolean(saved));
   const [pdfUrl, setPdfUrl] = useState<string | null>(saved?.pdfUrl ?? null);
   const [busy, setBusy] = useState<null | "generate" | RewriteId | "export">(null);
@@ -343,6 +344,20 @@ export function CarouselStudio({
     undoable("Cleared the carousel.", before);
   }
 
+  /** Links the saved carousel to the post it was made from (saving it first if it is new). */
+  async function attachToSource() {
+    if (!sourceId || !(await save(state))) return;
+    const res = await fetch(`/api/carousels/${savedId.current}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ documentId: sourceId }),
+    }).catch(() => null);
+    if (res?.ok) {
+      setAttached(true);
+      toast(`Attached to “${source?.title ?? "your post"}”.`);
+    } else toast("Couldn't attach the carousel to the post.");
+  }
+
   const heading = carouselHeading(source?.title ?? (slides[0] ? plainText(slides[0].title) : ""), slides.length);
   const sourceText = source?.text ?? "";
   const working = busy !== null;
@@ -365,8 +380,14 @@ export function CarouselStudio({
           <Button variant="secondary" onClick={() => void save(state)} disabled={!slides.length || working || saveStatus === "saving"}>
             {saveStatus === "saving" ? "Saving…" : "Save"}
           </Button>
-          <Button aria-disabled="true" aria-describedby="carousel-storage-note" tabIndex={0} onClick={(e) => e.preventDefault()}>
-            Attach to post
+          <Button
+            aria-disabled={source ? undefined : "true"}
+            aria-describedby="carousel-storage-note"
+            tabIndex={0}
+            disabled={source ? working || attached : undefined}
+            onClick={(e) => (source ? void attachToSource() : e.preventDefault())}
+          >
+            {attached ? "Attached to post" : "Attach to post"}
           </Button>
         </div>
       </header>
@@ -381,6 +402,7 @@ export function CarouselStudio({
               : persisted
                 ? "Saved to your posts. Changes save automatically."
                 : "Saves to your posts as soon as you have slides."}
+          {!source && " Open the studio from a post to attach the carousel to it."}
         </span>
         {pdfUrl && (
           <a href={pdfUrl} target="_blank" rel="noreferrer" className="font-medium text-accent-text underline-offset-4 hover:underline">
