@@ -277,6 +277,20 @@ export function useChatSession({
   }, []);
 
   /**
+   * A pick from an options panel: the user's message shows the option's label; the pick (picker call and option id)
+   * rides in the body and the message metadata, and the server reads the option's brief from its stored copy.
+   */
+  const sendOptionPick = useCallback(async (label: string, pick: { pickerToolCallId: string; optionId: string }) => {
+    lastErrorRef.current = null;
+    setNotice(null);
+    const ctx = docContext.current;
+    await chatRef.current.sendMessage(
+      { role: "user", parts: [{ type: "text", text: label }], metadata: { createdAt: new Date().toISOString(), optionPick: pick } },
+      { body: { optionPick: pick, uiAction: "option-pick", ...(ctx ? { documentContext: ctx } : {}) } },
+    );
+  }, []);
+
+  /**
    * Stops the live run on the server (its real run id, asked for if unknown) and the local stream. Once the
    * server confirms, any recovery poll ends and the stored chat is adopted (the partial reply lands a moment later).
    */
@@ -332,5 +346,5 @@ export function useChatSession({
   // While recovering, the view reads as waiting on the reply.
   const viewStatus = recovering && status !== "streaming" && status !== "submitted" ? "submitted" : status;
 
-  return { messages: chat.messages, status: viewStatus, errorText, canRetry, notice, send, sendQuickLink, stop, retry };
+  return { messages: chat.messages, status: viewStatus, errorText, canRetry, notice, send, sendQuickLink, sendOptionPick, stop, retry };
 }
