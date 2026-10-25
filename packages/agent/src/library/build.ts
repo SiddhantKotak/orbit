@@ -141,7 +141,9 @@ Write ONE new template that uses the same formula and beat order but is entirely
 - beats: the ordered steps of the formula, each a short phrase;
 - why: one sentence naming the writing principle that makes the formula work;
 - needs: which inputs a writer must supply, from "story" (a personal anecdote), "number" (a metric or statistic), "news" (a recent event); empty if none;
-- 2 to 5 lowercase tags.
+- 2 to 5 lowercase functional tags describing what the template does (for example reframe, contrarian, proof-first, reversal, myth-bust, step-by-step, before-after, question-close, curiosity-gap, story-arc, list, comparison, prediction, lesson); never generic words like linkedin, writing, post, hook or content.
+- never put three parallel slots or items in one sentence (no "[x], [y], and [z]"); put list items on separate lines.
+- length: a post skeleton has at most 6 blocks separated by blank lines and at most 900 characters; a hook skeleton has 1 to 3 lines and at most 280 characters.
 Reply with JSON only.`;
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}...` : s);
@@ -151,6 +153,25 @@ function promptFor(cluster: RefRow[], note: string | null): string {
   const first = cluster[0]!;
   const sources = cluster.slice(0, CLUSTER_SAMPLE).map((r) => `<source>\n${tag(clip(r.content, 1500))}\n</source>`).join("\n");
   return `Kind: ${kind(first.type) === "HOOK" ? "hook (opening lines only)" : "full post"}\nCategory: ${first.category}\n\n${sources}${note ? `\n\nNote: ${note}` : ""}`;
+}
+
+const BANNED_TAGS = new Set(["linkedin", "writing", "post", "posts", "hook", "hooks", "content", "template", "templates", "social", "media", "marketing", "tips", "general"]);
+const TRIAD = /\[[^\]\n]+\]\s*,\s*\[[^\]\n]+\]\s*,?\s*(?:and|or|&)\s*\[[^\]\n]+\]/i;
+
+/** Returns what is wrong with a draft, or null when it passes the house rules. */
+export function draftProblem(d: z.infer<typeof RewriteSchema>, type: "HOOK" | "POST"): string | null {
+  const sk = d.skeleton.trim();
+  if (TRIAD.test(sk)) return "Do not put three parallel slots in one sentence; use separate lines.";
+  if (type === "POST") {
+    if (sk.length > 900) return "The skeleton is over 900 characters; shorten it.";
+    if (sk.split(/\n\s*\n/).filter((b) => b.trim()).length > 6) return "The skeleton has more than 6 blocks; merge some.";
+  } else {
+    if (sk.length > 280) return "The hook is over 280 characters; shorten it.";
+    const lines = sk.split("\n").filter((l) => l.trim()).length;
+    if (lines < 1 || lines > 3) return "A hook must be 1 to 3 lines.";
+  }
+  if (d.tags.some((t) => BANNED_TAGS.has(t.toLowerCase().trim()))) return "Tags must be functional, not generic words like linkedin, post, hook or content.";
+  return null;
 }
 
 export const kebab = (s: string): string => words(s).join("-").slice(0, 60).replace(/-+$/, "") || "template";
@@ -169,6 +190,11 @@ export async function rewriteCluster(ai: AiClient, cluster: RefRow[], onCall?: (
     const tooClose = cluster.some((r) => ngramSimilarity(d.skeleton, r.content) >= SIMILARITY_LIMIT || ngramSimilarity(text, r.content) >= SIMILARITY_LIMIT);
     if (tooClose || titles.has(words(d.title).join(" "))) {
       note = "Your last draft was too close to a source. Use completely different wording and a different title.";
+      continue;
+    }
+    const problem = draftProblem(d, kind(first.type));
+    if (problem) {
+      note = `Your last draft broke a rule. ${problem}`;
       continue;
     }
     return { slug: "", type: kind(first.type), category: first.category.trim().toLowerCase(), title: d.title.trim(), skeleton: d.skeleton.trim(), beats: d.beats, why: d.why, needs: [...new Set(d.needs)], tags: [...new Set(d.tags.map((t) => t.toLowerCase().trim()))] };

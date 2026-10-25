@@ -140,3 +140,19 @@ describe("clusterByEmbedding", () => {
     for (const c of out) expect(new Set(c.map((r) => `${r.type}|${r.category}`)).size).toBe(1);
   });
 });
+
+describe("draft rules", () => {
+  const regen = async (bad: Record<string, unknown>, type = "post") => {
+    const ai = fake([() => ({ ...draft(1), ...bad }), () => draft(2)]);
+    const out = await buildLibrary({ rows: [row("Src", SRC, type)], ai, maxUsd: 5 });
+    expect(ai.calls).toBe(2);
+    expect(out.templates[0]!.title).toBe("Original take 2");
+  };
+
+  it("regenerates a skeleton with three parallel slots in one sentence", () => regen({ skeleton: "Learn [x], [y], and [z] before you start the long road ahead." }));
+  it("regenerates a post over 900 characters", () => regen({ skeleton: `[Lead] ${"word ".repeat(200)}` }));
+  it("regenerates a post with more than 6 blocks", () => regen({ skeleton: Array.from({ length: 7 }, (_, i) => `[Block ${i}] of the text`).join("\n\n") }));
+  it("regenerates a hook over 3 lines", () => regen({ skeleton: "[One] line here\n[Two] line here\n[Three] line here\n[Four] line here" }, "hook"));
+  it("regenerates a hook over 280 characters", () => regen({ skeleton: `[Lead] ${"word ".repeat(70)}` }, "hook"));
+  it("regenerates generic tags", () => regen({ tags: ["reframe", "LinkedIn"] }));
+});
