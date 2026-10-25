@@ -18,6 +18,16 @@ const base: PromptInput = {
 const input = (over: Partial<PromptInput> = {}): PromptInput => ({ ...base, ...over });
 
 describe("buildSystemPrompt", () => {
+  it("states the angles-first policy and the picked-angle block", () => {
+    expect(STATIC_PREFIX).toContain("Angles first");
+    expect(STATIC_PREFIX).toContain("presentOptions");
+    expect(STATIC_PREFIX).toContain("Here's your first draft. What would you like to improve?");
+    const s = buildSystemPrompt(input({ pickedAngle: { question: "Which angle?", label: "The myth", brief: "Argue the myth." } }));
+    expect(s).toContain("<picked_angle>");
+    expect(s).toContain("Argue the myth.");
+    expect(buildSystemPrompt(input())).not.toContain("The user picked:");
+  });
+
   it("carries the memory index but no memory contents", () => {
     const s = buildSystemPrompt(input({ memoryIndex: "identity/\n  identity/about.md, Who … (updated 2026-10-21)" }));
     expect(s).toContain("<memory_index>");
@@ -97,7 +107,7 @@ describe("loadPromptInput", () => {
     const ctx = await testContext({
       profileId,
       userId,
-      selections: { knowledgeIds: [mine.id, theirs.id], writingStyleId: null, webSearchEnabled: false, quickLinkKey: "review-it" },
+      selections: { knowledgeIds: [mine.id, theirs.id], writingStyleId: null, webSearchEnabled: false, quickLinkKey: "review-it", formatId: null },
       documentRef: { current: doc },
     });
 

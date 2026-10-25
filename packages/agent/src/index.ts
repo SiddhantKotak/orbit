@@ -1,5 +1,6 @@
 export { LIMITS } from "./limits";
 export * from "./types";
+export { stripCitations } from "./client/sanitize";
 export type { OpenDocument, TurnContext, VisualsToolDeps } from "./context";
 export { checkMemoryFact, FACT_MAX_CHARS, FACT_MIN_CHARS, type FactCheck } from "./guard";
 export { buildSystemPrompt, loadPromptInput, STATIC_PREFIX, type PromptInput } from "./prompt";
@@ -51,7 +52,9 @@ export {
 } from "./specialists/envelope";
 export { buildGrounding, renderGrounding, type Grounding } from "./specialists/grounding";
 export { runSpecialist, type SpecialistResult } from "./specialists/run";
-export { bannedWordsFromRules, CHECK_IDS, runDeterministicChecks, type CheckId, type CheckResult } from "./specialists/checks";
+export { bannedWordsFromRules, CHECK_IDS, mergeChecks, runDeterministicChecks, runWritingChecks, WRITING_CHECK_IDS, type CheckId, type CheckResult } from "./specialists/checks";
+export { acceptOverrides, compileHardRules, DEFAULT_HARD_RULES, DEFAULT_TARGETS, enforcedChips, resolveRules, type EffectiveRules, type HardRules, type TurnOverrides } from "./writing/rules";
+export { lintPost, type LintContext, type LintId, type Violation } from "./writing/lint";
 export { editDocumentText, EditResultSchema, FinalReviewPayload, type EditOutcome, type FinalReview } from "./specialists/editing";
 export { delegateEditingRun, delegateTools } from "./tools/delegate";
 export {

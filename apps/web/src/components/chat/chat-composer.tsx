@@ -6,6 +6,7 @@ import { Button, ComposerShell, cn } from "@brandloop/ui";
 import { SendIcon } from "@brandloop/ui/icons";
 import { VoicePicker, type VoiceOption } from "@/components/home/voice-picker";
 import { ModelPicker, type AiModelInfo } from "./model-picker";
+import { FormatMenu } from "./format-menu";
 import { KnowledgeChip, KnowledgePicker, type KnowledgeChoice } from "./knowledge-picker";
 
 /** Where the home composer sat when the chat started: the docked composer glides from there. */
@@ -46,9 +47,12 @@ export function ChatComposer({
   onKnowledgeChange,
   webSearch,
   onWebSearchChange,
+  formatId = null,
+  onFormatChange,
   fromRect,
   inputRef,
   model,
+  placeholder,
 }: {
   value: string;
   onValueChange: (v: string) => void;
@@ -61,9 +65,14 @@ export function ChatComposer({
   onKnowledgeChange: (next: KnowledgeChoice[]) => void;
   webSearch: boolean;
   onWebSearchChange: (on: boolean) => void;
+  /** The framework or template picked for the next message (Task W8); omit to hide the Format menu. */
+  formatId?: string | null;
+  onFormatChange?: (id: string | null) => void;
   fromRect?: ComposerRect | null;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   model?: { current: string | null; info: AiModelInfo | null; onChoose: (id: string) => void };
+  /** Replaces the idle placeholder, e.g. while an options panel is open. */
+  placeholder?: string;
 }) {
   const sheetRef = useRef<HTMLFormElement>(null);
   useHandoff(sheetRef, fromRect);
@@ -102,7 +111,7 @@ export function ChatComposer({
           rows={1}
           data-lenis-prevent
           enterKeyHint="send"
-          placeholder={busy ? "Orbit is writing…" : "Reply, or ask for a change…"}
+          placeholder={busy ? "Orbit is writing…" : (placeholder ?? "Reply, or ask for a change…")}
           className="block max-h-[min(40vh,320px)] min-h-[44px] w-full resize-none bg-transparent px-4 pt-4 text-[16px] leading-[1.5] text-text outline-none [field-sizing:content] placeholder:text-text-3 sm:px-5"
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-2 [--composer-control:44px] @md:[--composer-control:40px]">
@@ -124,6 +133,7 @@ export function ChatComposer({
             </Button>
             <VoicePicker voices={voices} selectedId={selectedVoiceId} />
             {model && <ModelPicker current={model.current} info={model.info} onChoose={model.onChoose} />}
+            {onFormatChange && <FormatMenu value={formatId} onChange={onFormatChange} disabled={busy} />}
           </div>
           {busy ? (
             <button

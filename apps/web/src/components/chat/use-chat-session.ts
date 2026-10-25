@@ -247,15 +247,17 @@ export function useChatSession({
     };
   }, [status, chatId, turn]);
 
-  const send = useCallback(async (text: string) => {
+  /** `formatId`: a framework or template for this message only (sent in the body, so it never lingers in the selections). */
+  const send = useCallback(async (text: string, opts: { formatId?: string | null } = {}) => {
     const t = text.trim();
     if (!t) return;
     lastErrorRef.current = null;
     setNotice(null);
     const ctx = docContext.current;
+    const body = { ...(ctx ? { documentContext: ctx } : {}), ...(opts.formatId ? { selectedFormatId: opts.formatId } : {}) };
     await chatRef.current.sendMessage(
       { text: t, metadata: { createdAt: new Date().toISOString() } },
-      ctx ? { body: { documentContext: ctx } } : undefined,
+      Object.keys(body).length ? { body } : undefined,
     );
   }, []);
 
@@ -271,6 +273,20 @@ export function useChatSession({
         metadata: { createdAt: new Date().toISOString(), hideInUI: true, quickLinkKey: key },
       },
       { body: { quickLinkKey: key, uiAction: "quick-link", ...(ctx ? { documentContext: ctx } : {}) } },
+    );
+  }, []);
+
+  /**
+   * A pick from an options panel: the user's message shows the option's label; the pick (picker call and option id)
+   * rides in the body and the message metadata, and the server reads the option's brief from its stored copy.
+   */
+  const sendOptionPick = useCallback(async (label: string, pick: { pickerToolCallId: string; optionId: string }) => {
+    lastErrorRef.current = null;
+    setNotice(null);
+    const ctx = docContext.current;
+    await chatRef.current.sendMessage(
+      { role: "user", parts: [{ type: "text", text: label }], metadata: { createdAt: new Date().toISOString(), optionPick: pick } },
+      { body: { optionPick: pick, uiAction: "option-pick", ...(ctx ? { documentContext: ctx } : {}) } },
     );
   }, []);
 
@@ -330,5 +346,5 @@ export function useChatSession({
   // While recovering, the view reads as waiting on the reply.
   const viewStatus = recovering && status !== "streaming" && status !== "submitted" ? "submitted" : status;
 
-  return { messages: chat.messages, status: viewStatus, errorText, canRetry, notice, send, sendQuickLink, stop, retry };
+  return { messages: chat.messages, status: viewStatus, errorText, canRetry, notice, send, sendQuickLink, sendOptionPick, stop, retry };
 }

@@ -2,14 +2,17 @@ import type { InferUITools, Tool, UIMessage } from "ai";
 import type { TurnContext } from "../context";
 import type { ChatDataParts, MessageMetadata } from "../types";
 import { delegateTools } from "./delegate";
+import { analyzeTools } from "./analyze";
 import { documentTools } from "./documents";
+import { hookTools } from "./hooks";
 import { knowledgeTools } from "./knowledge";
 import { memoryTools } from "./memory";
+import { optionTools } from "./options";
 import { strategyTools } from "./strategy";
 import { visualTools } from "./visuals";
 
 function baseTools(ctx: TurnContext) {
-  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx) };
+  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...analyzeTools(ctx), ...optionTools() };
 }
 
 /**

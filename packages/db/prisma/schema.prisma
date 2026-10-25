@@ -84,6 +84,7 @@ model Profile {
   backgroundJobs      BackgroundJob[]
   chats               Chat[]
   documents           Document[]
+  carousels           Carousel[]
   storageObjects      StorageObject[]
   visuals             Visual[]
   brandTheme          BrandTheme?
@@ -128,6 +129,7 @@ enum JobKind {
   KNOWLEDGE_INGEST
   STRATEGY_GENERATE
   VOICE_EXTRACT
+  STYLE_EXTRACT
 }
 
 enum JobStatus {
@@ -182,11 +184,61 @@ model VoiceStyle {
   tagline     String    @default("")
   guide       String    @default("")
   samplePosts String[]
+  /// The compiled StyleProfile (packages/ai/src/style.ts), validated on write. Null for rows that only have a `guide`.
+  styleProfile      Json?
+  profileVersion    Int         @default(0)
+  status            StyleStatus @default(READY)
+  statusDetail      String?
+  analyzedPostCount Int         @default(0)
+  analyzedAt        DateTime?
+  corpusHash        String?
+  versions          VoiceStyleVersion[]
+  corpus            StyleCorpusPost[]
   selectedBy  Profile[] @relation("SelectedVoice")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([profileId])
+}
+
+enum StyleStatus {
+  PENDING
+  ANALYZING
+  READY
+  FAILED
+}
+
+enum CorpusSource {
+  PASTE
+  EXPORT
+  ORBIT
+}
+
+/// An earlier compiled profile, kept so a re-extraction that made the style worse can be undone (last 10).
+model VoiceStyleVersion {
+  id           String     @id @default(cuid())
+  voiceStyle   VoiceStyle @relation(fields: [voiceStyleId], references: [id], onDelete: Cascade)
+  voiceStyleId String
+  version      Int
+  profile      Json
+  corpusHash   String
+  createdAt    DateTime   @default(now())
+
+  @@unique([voiceStyleId, version])
+}
+
+/// One post of a style's corpus (a pasted post, a LinkedIn export row). Deduplicated by hash.
+model StyleCorpusPost {
+  id           String       @id @default(cuid())
+  voiceStyle   VoiceStyle   @relation(fields: [voiceStyleId], references: [id], onDelete: Cascade)
+  voiceStyleId String
+  text         String
+  source       CorpusSource
+  postedAt     DateTime?
+  hash         String
+  createdAt    DateTime     @default(now())
+
+  @@unique([voiceStyleId, hash])
 }
 
 model KnowledgeItem {
@@ -316,7 +368,10 @@ model Document {
   kind      DocumentKind      @default(TEXT)
   status    DocumentStatus    @default(DRAFT)
   title     String
+  /// The current version's number. A restore moves it backwards; the next edit writes max(version) + 1.
   version   Int               @default(1)
+  /// Optimistic-concurrency token: bumped on every save and restore (the version number can't serve, it moves back).
+  revision  Int               @default(1)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   deletedAt DateTime?
@@ -324,6 +379,7 @@ model Document {
   chat      Chat?
   visuals   Visual[]
   media     PostMedia[]
+  carousels Carousel[]
 
   @@index([profileId, deletedAt, updatedAt])
 }
@@ -580,4 +636,31 @@ model PostMedia {
   @@unique([documentId, visualId])
   @@index([documentId, position])
   @@index([visualId])
+}
+
+/// A saved carousel from the studio. `slides` is the studio's slide list; `revision` is the optimistic-concurrency token.
+model Carousel {
+  id            String    @id @default(cuid())
+  profile       Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId     String
+  /// The post it was made from or attached to.
+  document      Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId    String?
+  title         String
+  template      String
+  aspect        String
+  /// Everything else the studio holds besides slides: kit and logo.
+  options       Json      @default("{}")
+  slides        Json
+  version       Int       @default(1)
+  revision      Int       @default(1)
+  /// The StorageObject id of the last exported PDF (public, unguessable key).
+  pdfStorageKey String?
+  pdfUrl        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([profileId, deletedAt, updatedAt])
+  @@index([documentId])
 }

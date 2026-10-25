@@ -17,6 +17,7 @@ import {
   createUIMessageStreamResponse,
   InvalidToolInputError,
   NoSuchToolError,
+  hasToolCall,
   stepCountIs,
   streamText,
   ToolCallRepairError,
@@ -38,6 +39,7 @@ import type { RunRegistry } from "./registry";
 import { titleChat } from "./title";
 import { isAbort } from "./tools/run";
 import { buildTools, type ChatUIMessage } from "./tools";
+import { resolveOptionPick } from "./tools/options";
 import { ActiveTaskSchema, type ActiveTask, type ChatRequestBody, type MessageMetadata } from "./types";
 
 export type ChatDeps = {
@@ -170,6 +172,16 @@ function failedOutput(output: unknown): boolean {
   return typeof o.error === "string" || o.status === "needs-user-input";
 }
 
+/** The picker this reply left open, for the task ledger. */
+function pendingPicker(parts: Part[]): { id: string; question: string } | null {
+  for (const p of [...(parts as { type: string; toolCallId?: string; state?: string; output?: unknown }[])].reverse()) {
+    if (p.type !== "tool-presentOptions" || p.state !== "output-available" || typeof p.toolCallId !== "string") continue;
+    const question = (p.output as { question?: unknown } | undefined)?.question;
+    if (typeof question === "string") return { id: p.toolCallId, question };
+  }
+  return null;
+}
+
 /** The ledger's summary of each specialist handoff made this turn. */
 function handoffSummaries(handoffs: TurnContext["handoffs"]): TurnOutcome["handoffs"] {
   return [...handoffs.values()].map((h) => {
@@ -182,6 +194,9 @@ function handoffSummaries(handoffs: TurnContext["handoffs"]): TurnOutcome["hando
       parentAction: h.parentAction,
       requestDigest: h.requestDigest,
       hasMissingInput: h.missingInput.length > 0,
+      missingFacts: Array.isArray((h.payload as { missingFacts?: unknown } | null)?.missingFacts)
+        ? ((h.payload as { missingFacts: unknown[] }).missingFacts.filter((f): f is string => typeof f === "string"))
+        : [],
     };
   });
 }
@@ -316,7 +331,8 @@ export async function runChatTurn(
         instructions: verdict.ok ? instructions : "Reply with the fixed message only.",
         messages: modelMessages,
         tools,
-        stopWhen: stepCountIs(LIMITS.steps),
+        // A picker ends the turn: the user answers it, then the next turn writes.
+        stopWhen: [stepCountIs(LIMITS.steps), hasToolCall("presentOptions")],
         maxOutputTokens: LIMITS.maxOutputTokens,
         abortSignal: AbortSignal.any([controller.signal, AbortSignal.timeout(deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)]),
         // Another instance may have asked this run to stop (POST /api/chat/stop landed elsewhere).
@@ -390,7 +406,7 @@ export async function runChatTurn(
             ? { id: ctx.documentRef.current.id, title: ctx.documentRef.current.title }
             : null,
           flow: null,
-          picker: null,
+          picker: pendingPicker(parts),
           now: now(),
         };
         // A refused exchange leaves the task ledger alone, so its text never reaches a later prompt.
@@ -442,6 +458,7 @@ export async function runChatTurn(
         flowType: body.flowType ?? null,
         flowStep: body.flowStep ?? null,
         uiAction: body.uiAction ?? null,
+        optionPick: body.optionPick ?? null,
       },
     });
 
@@ -487,6 +504,7 @@ export async function runChatTurn(
       chatId,
       runId,
       requestMessageId,
+      userText,
       // Continue the active task's id, so tools and the ledger agree on it.
       taskId: prevTask?.status === "active" ? prevTask.taskId : newId(),
       ai: deps.ai,
@@ -496,9 +514,11 @@ export async function runChatTurn(
         writingStyleId: body.selectedWritingStyleId,
         webSearchEnabled: body.webSearchEnabled,
         quickLinkKey: body.quickLinkKey ?? null,
+        formatId: body.selectedFormatId,
       },
       writer: null,
       handoffs: new Map(),
+      pickedAngle: resolveOptionPick(stored, body.optionPick),
       documentRef: { current: await getChatDocument(profileId, chatId) },
       documentContext: body.documentContext ?? null,
       visuals: deps.visuals ?? null,
@@ -511,6 +531,7 @@ export async function runChatTurn(
           }
         : undefined,
       now,
+      deadline: new Date(Date.now() + (deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)),
     };
     const tools = tagToolErrors(buildTools(ctx, { webSearchTool: deps.webSearchTool }));
     const instructions = buildSystemPrompt(await loadPromptInput(ctx, prevTask));

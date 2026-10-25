@@ -2,11 +2,10 @@ import { Logo } from "@/components/shell/logo";
 import { AuthArt } from "./auth-art";
 import { ThemeToggle } from "./theme-toggle";
 
-// Privacy and Terms live on the marketing site; there is no help centre yet, so Help is left out.
-const marketingUrl = (process.env.NEXT_PUBLIC_MARKETING_URL ?? "http://localhost:4321").replace(/\/$/, "");
+// Privacy and Terms are served from this origin by the marketing route group; there is no help centre yet, so Help is left out.
 const footerLinks = [
-  { label: "Privacy", href: `${marketingUrl}/privacy` },
-  { label: "Terms", href: `${marketingUrl}/terms` },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
 ];
 
 /**
@@ -25,7 +24,7 @@ export function AuthScreen({ title, lead, children }: { title: string; lead: str
 
         <div className="flex w-full max-w-[400px] flex-1 flex-col justify-center py-8 lg:py-14">
           <div className="flex flex-col items-center text-center">
-            <Logo size={22} />
+            <Logo size={40} />
             <h1 className="type-greeting mt-10 text-text">{title}</h1>
             <p className="mt-3 max-w-[40ch] text-[15px] leading-[1.55] text-text-2">{lead}</p>
           </div>

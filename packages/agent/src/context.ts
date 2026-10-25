@@ -19,6 +19,8 @@ export type TurnContext = {
   chatId: string;
   runId: string;
   requestMessageId: string;
+  /** The user's own words in this turn. Only this text can unlock a one-turn rule override; tool output never does. */
+  userText: string;
   taskId: string;
   ai: AiClient;
   embedder: Embedder | null;
@@ -27,7 +29,11 @@ export type TurnContext = {
     writingStyleId: string | null;
     webSearchEnabled: boolean;
     quickLinkKey: string | null;
+    /** A framework or template the user picked for this message, or null. */
+    formatId: string | null;
   };
+  /** The angle the user picked from a presentOptions panel this turn, resolved from the stored call; else null. */
+  pickedAngle?: { question: string; label: string; brief: string } | null;
   writer: UIMessageStreamWriter | null;
   /** Specialist envelopes produced this turn, keyed by tool call id. */
   handoffs: Map<string, HandoffEnvelope>;
@@ -43,4 +49,6 @@ export type TurnContext = {
   /** Moderation for text a tool is about to save as the post. Returns the refusal message when it is flagged, else null. */
   screenText?: ((text: string) => Promise<string | null>) | undefined;
   now: () => Date;
+  /** When the turn is aborted. The polish pass skips its model repair in the last 20 s. */
+  deadline: Date;
 };

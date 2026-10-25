@@ -1,12 +1,15 @@
 "use client";
 
 import { lazy, memo, Suspense } from "react";
-import { collapseToolRuns, parseProposal, type ChatUIMessage, type Proposal } from "@brandloop/agent/client";
+import { collapseToolRuns, parseOptionsPanel, stripCitations, parseProposal, type ChatUIMessage, type Proposal } from "@brandloop/agent/client";
 import type { EditVisualOutput, ProposeVisualOutput, SuggestVisualsOutput } from "@brandloop/agent";
 import { cn } from "@brandloop/ui";
+import { AnalysisCard, analysisOf } from "./analysis-card";
 import { DraftCard } from "./document-panel";
+import { HookCards, hookCardsOf } from "./hook-cards";
 import { ProposalCard } from "./proposal-card";
 import { VisualConceptCards, VisualEditStatus, VisualProposalCard } from "./visual-cards";
+import { ReviewCard, reviewChecksOf } from "./review-card";
 import { MemoryTag, memoryTagOf } from "./memory-tag";
 import { StepsDisclosure } from "./steps-disclosure";
 import type { ToolPartLike } from "./tool-row";
@@ -42,7 +45,7 @@ const isToolPart = (p: { type: string }) => p.type.startsWith("tool-") || p.type
  * An assistant message's parts: markdown text, every run of tool calls folded into "Worked through N steps"
  * (decision D6), then the post card, edit proposals and memory confirmations.
  */
-export function MessageParts({ message, streaming }: { message: ChatUIMessage; streaming: boolean }) {
+export function MessageParts({ message, streaming, optionAnswer = null }: { message: ChatUIMessage; streaming: boolean; optionAnswer?: string | null }) {
   const visible = (message.parts as Part[]).filter(
     (p) => p.type === "text" || p.type === "step-start" || isToolPart(p),
   );
@@ -58,6 +61,19 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
     const tag = memoryTagOf(p);
     return tag ? [{ key: i, ...tag }] : [];
   });
+  const reviews = (message.parts as (ToolPartLike & { toolCallId?: string })[]).flatMap((p, i) => {
+    const checks = reviewChecksOf(p);
+    return checks ? [{ key: p.toolCallId ?? String(i), checks }] : [];
+  });
+  const hookSets = hookCardsOf(message.parts as ToolPartLike[]);
+  const pickers = (message.parts as ToolPartLike[]).flatMap((p) => {
+    const panel = parseOptionsPanel(p as { type: string; state?: string; toolCallId?: string; output?: unknown });
+    return panel ? [panel] : [];
+  });
+  const analyses = (message.parts as ToolPartLike[]).flatMap((p) => {
+    const a = analysisOf(p);
+    return a ? [a] : [];
+  });
   return (
     <>
       {items.map((it, i) => {
@@ -65,13 +81,34 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
           return <StepsDisclosure key={i} parts={(it as { parts: ToolPartLike[] }).parts} running={streaming && i === items.length - 1} />;
         }
         if (it.type === "text") {
-          const text = (it as unknown as { text: string }).text;
+          const text = stripCitations((it as unknown as { text: string }).text);
           if (!text.trim()) return null;
           return <TextBlock key={i} text={text} streaming={streaming && i === lastText && i === items.length - 1} />;
         }
         return null;
       })}
+      {pickers.map((panel) => (
+        <div key={panel.pickerToolCallId} className="flex flex-col gap-2" data-options-summary={optionAnswer !== null ? "" : undefined}>
+          {panel.preamble && <TextBlock text={panel.preamble} streaming={false} />}
+          {optionAnswer !== null && (
+            <p className="text-[13px] leading-[1.5] text-text-3">
+              Q: {panel.question}
+              <br />
+              A: {optionAnswer}
+            </p>
+          )}
+        </div>
+      ))}
       {draft && <DraftCard fallback={draft} />}
+      {analyses.map((a, i) => (
+        <AnalysisCard key={i} analysis={a} />
+      ))}
+      {hookSets.map((cards, i) => (
+        <HookCards key={i} cards={cards} />
+      ))}
+      {reviews.map(({ key, checks }) => (
+        <ReviewCard key={key} checks={checks} />
+      ))}
       {proposals.map(({ toolCallId, proposal }) => (
         <ProposalCard key={toolCallId} toolCallId={toolCallId} proposal={proposal} />
       ))}
@@ -88,7 +125,7 @@ export function MessageParts({ message, streaming }: { message: ChatUIMessage; s
 /** The reply's visible words, for Copy. */
 export function replyText(message: ChatUIMessage): string {
   return (message.parts as Part[])
-    .map((p) => (p.type === "text" ? p.text.trim() : ""))
+    .map((p) => (p.type === "text" ? stripCitations(p.text).trim() : ""))
     .filter(Boolean)
     .join("\n\n");
 }
