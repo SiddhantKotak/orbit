@@ -18,6 +18,7 @@ vi.mock("@brandloop/db", () => db);
 vi.mock("@brandloop/ai", () => ({ StrategySchema: {} }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
 vi.mock("@/lib/account", () => ({
+  ACCOUNT_CACHE_TAG: "account",
   getAccount: async () => ({ user: { id: "u1" }, currentProfile: { id: "p1" } }),
 }));
 
