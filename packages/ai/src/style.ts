@@ -65,6 +65,13 @@ export const StyleProfileSchema = z.object({
   finalChecks: z.array(z.string().min(1).max(200)).max(10),
   layout: LayoutTargetsSchema,
   referencePosts: z.array(ReferencePostSchema).min(3).max(5),
+  /** Edit-learning state: rules a revert removed (never re-learned) and, per post, the document version learned up to. */
+  learning: z
+    .object({
+      suppressed: z.array(z.string().max(200)).max(100).default([]),
+      lastLearnedVersion: z.record(z.string(), z.number().int()).default({}),
+    })
+    .optional(),
   source: z.object({
     kind: z.enum(["preset", "own"]),
     postCount: z.number().int().min(0),

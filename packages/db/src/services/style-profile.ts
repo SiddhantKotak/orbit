@@ -6,7 +6,7 @@ import { renderProfileGuide } from "./style-guide";
 
 export { renderProfileGuide };
 
-/** Compiled versions kept per style. */
+/** Compiled versions kept per style, besides version 1 (the original), which is never trimmed so a revert can always reach it. */
 export const STYLE_VERSIONS_KEPT = 10;
 
 /** A preset, or the caller's own style. Another profile's own style is invisible. */
@@ -53,7 +53,7 @@ export async function saveStyleProfile(voiceStyleId: string, profile: StyleProfi
       },
     }),
     prisma.voiceStyleVersion.create({ data: { voiceStyleId, version, profile: json, corpusHash } }),
-    prisma.voiceStyleVersion.deleteMany({ where: { voiceStyleId, version: { lte: version - STYLE_VERSIONS_KEPT } } }),
+    prisma.voiceStyleVersion.deleteMany({ where: { voiceStyleId, version: { lte: version - STYLE_VERSIONS_KEPT, gt: 1 } } }),
   ]);
   return { version };
 }
@@ -73,7 +73,18 @@ export async function restoreStyleVersion(profileId: string, voiceStyleId: strin
   if (!(await ownStyle(profileId, voiceStyleId))) throw new AccountError("Writing style not found");
   const old = await prisma.voiceStyleVersion.findUnique({ where: { voiceStyleId_version: { voiceStyleId, version } } });
   if (!old) throw new AccountError("That version is no longer kept");
-  return saveStyleProfile(voiceStyleId, StyleProfileSchema.parse(old.profile), old.corpusHash);
+  const restored = StyleProfileSchema.parse(old.profile);
+  // Sticky revert: rules the reverted-away profile had and the restored one lacks are never learned again, and the
+  // per-post learning marks are kept so the same edits are not re-read.
+  const current = StyleProfileSchema.safeParse((await prisma.voiceStyle.findUnique({ where: { id: voiceStyleId } }))?.styleProfile);
+  if (current.success) {
+    const flat = (p: StyleProfile) => Object.values(p.rules).flatMap((r) => [...r.do, ...r.dont]);
+    const keep = new Set(flat(restored).map((r) => r.toLowerCase()));
+    const removed = flat(current.data).filter((r) => !keep.has(r.toLowerCase()));
+    const suppressed = [...new Set([...(restored.learning?.suppressed ?? []), ...(current.data.learning?.suppressed ?? []), ...removed])].slice(-100);
+    restored.learning = { suppressed, lastLearnedVersion: { ...(restored.learning?.lastLearnedVersion ?? {}), ...(current.data.learning?.lastLearnedVersion ?? {}) } };
+  }
+  return saveStyleProfile(voiceStyleId, restored, old.corpusHash);
 }
 
 /** Deletes the profile's own style with its corpus and versions. A preset or another profile's style is not found. */
@@ -92,20 +103,14 @@ export async function getLearnTarget(profileId: string): Promise<{ style: VoiceS
   return style && style.status === "READY" && parsed?.success ? { style, profile: parsed.data } : null;
 }
 
-/** When the style's newest version was written, or null. */
-export async function lastStyleVersionAt(voiceStyleId: string): Promise<Date | null> {
-  const v = await prisma.voiceStyleVersion.findFirst({ where: { voiceStyleId }, orderBy: { version: "desc" }, select: { createdAt: true } });
-  return v?.createdAt ?? null;
-}
-
 /**
  * Saves learned rules as the next version of the caller's own style. `expectedVersion` is the profileVersion the rules
  * were derived from: if the style moved on meanwhile (a re-extraction, a revert) nothing is written. Returns the new
  * version, or null. Every change is a version, so Revert restores the previous profile.
  */
-export async function saveLearnedRules(profileId: string, voiceStyleId: string, expectedVersion: number, rules: StyleProfile["rules"]): Promise<{ version: number } | null> {
+export async function saveLearnedRules(profileId: string, voiceStyleId: string, expectedVersion: number, rules: StyleProfile["rules"], learning: NonNullable<StyleProfile["learning"]>): Promise<{ version: number } | null> {
   const style = await ownStyle(profileId, voiceStyleId);
   const parsed = style ? StyleProfileSchema.safeParse(style.styleProfile) : null;
   if (!style || !parsed?.success || style.profileVersion !== expectedVersion) return null;
-  return saveStyleProfile(voiceStyleId, { ...parsed.data, rules }, style.corpusHash ?? "");
+  return saveStyleProfile(voiceStyleId, { ...parsed.data, rules, learning }, style.corpusHash ?? "");
 }

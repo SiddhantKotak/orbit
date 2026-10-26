@@ -1,13 +1,16 @@
 import { after } from "next/server";
 import { createJobDriver, type EnqueueOptions, type JobContext, type JobDriver } from "@brandloop/jobs";
 import { createAiClient } from "@brandloop/ai";
-import { LEARN_DELAY_MS, LEARN_WINDOW_MS, noteDocumentEdit, runStyleLearn, scriptedAi } from "@brandloop/agent";
+import { LEARN_DELAY_MS, noteDocumentEdit, runStyleLearn, scriptedAi } from "@brandloop/agent";
 import { isMockMode } from "@/lib/chat-deps";
 import { getVisualDeps } from "@/lib/visuals/deps";
 import { handleVisualJob } from "@/lib/visuals/handle-visual-job";
 
 export type Topic = "visual.generate" | "visual.edit" | "visual.logo" | "style.learn-from-edit";
-type Payload = { visualId: string } | { profileId: string; documentId: string };
+type Payload = { visualId: string } | { profileId: string; documentId: string; token?: string };
+
+/** The newest pending style-learning token per post: a newer save supersedes an older queued job (trailing debounce). */
+const pendingLearn = new Map<string, string>();
 
 const g = globalThis as unknown as { __jobDriver?: JobDriver };
 
@@ -30,8 +33,11 @@ function driver(): JobDriver {
     // Payloads are ids; log the message only.
     onError: (err, { topic }) => console.error(`[jobs] ${topic} failed: ${err.message}`),
     handlers: {
-      "style.learn-from-edit": (payload: { profileId: string; documentId: string }) =>
-        runStyleLearn(isMockMode() ? scriptedAi() : createAiClient(), payload),
+      "style.learn-from-edit": async (payload: { profileId: string; documentId: string; token: string }) => {
+        if (pendingLearn.get(payload.documentId) !== payload.token) return;
+        pendingLearn.delete(payload.documentId);
+        await runStyleLearn(isMockMode() ? scriptedAi() : createAiClient(), payload);
+      },
       "visual.generate": visualJob("generate"), "visual.edit": visualJob("edit"), "visual.logo": visualJob("logo"),
     },
   }));
@@ -61,8 +67,10 @@ export async function afterUserEdit(profileId: string, documentId: string): Prom
     const note = await noteDocumentEdit(profileId, documentId);
     if (!note?.enqueue || !(process.env.OPENAI_API_KEY || isMockMode())) return;
     const delay = Number(process.env.STYLE_LEARN_DELAY_MS ?? LEARN_DELAY_MS);
-    await enqueue("style.learn-from-edit", { profileId, documentId }, {
-      dedupeId: `style-learn:${documentId}:${Math.floor(Date.now() / LEARN_WINDOW_MS)}`,
+    const token = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    pendingLearn.set(documentId, token);
+    if (pendingLearn.size > 1_000) pendingLearn.delete(pendingLearn.keys().next().value!);
+    await enqueue("style.learn-from-edit", { profileId, documentId, token }, {
       notBefore: new Date(Date.now() + (Number.isFinite(delay) ? delay : LEARN_DELAY_MS)),
     });
   } catch (err) {

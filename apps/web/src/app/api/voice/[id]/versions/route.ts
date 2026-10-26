@@ -22,6 +22,7 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     return NextResponse.json(await restoreStyleVersion(currentProfile.id, (await ctx.params).id, parsed.data.version));
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't restore" }, { status: 404 });
+    const message = err instanceof Error ? err.message : "Couldn't restore";
+    return NextResponse.json({ error: message }, { status: /no longer kept/.test(message) ? 409 : /not found/i.test(message) ? 404 : 400 });
   }
 }

@@ -98,12 +98,12 @@ describe("preset profiles", () => {
 });
 
 describe("style profile storage", () => {
-  it("saving bumps the version, keeps history, prunes to 10 and rewrites the guide", async () => {
+  it("saving bumps the version, keeps history, prunes to 10 (keeping version 1) and rewrites the guide", async () => {
     const { profileId } = await account(1);
     const style = await ownStyle(profileId);
     for (let i = 1; i <= 12; i++) expect(await saveStyleProfile(style.id, ownProfile(`v${i}`), `h${i}`)).toEqual({ version: i });
     const versions = await listStyleVersions(profileId, style.id);
-    expect(versions!.map((v) => v.version)).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4, 3]);
+    expect(versions!.map((v) => v.version)).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1]);
     const row = await prisma.voiceStyle.findUniqueOrThrow({ where: { id: style.id } });
     expect(row).toMatchObject({ profileVersion: 12, status: "READY", corpusHash: "h12", analyzedPostCount: 4 });
     expect(row.guide).toContain("v12");

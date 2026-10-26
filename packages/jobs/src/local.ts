@@ -43,6 +43,8 @@ export function createLocalDriver(opts: LocalDriverOptions): JobDriver {
       if (o.dedupeId) {
         if (seen.has(o.dedupeId)) return;
         seen.add(o.dedupeId);
+        // Bounded: forget the oldest keys (a Set iterates in insertion order).
+        if (seen.size > 5_000) for (const k of [...seen].slice(0, 1_000)) seen.delete(k);
       }
       let done!: () => void;
       const tracked = new Promise<void>((resolve) => (done = resolve));

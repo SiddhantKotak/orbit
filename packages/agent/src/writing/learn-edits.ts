@@ -4,20 +4,20 @@
  * kept (the learning guard plus a fact filter), and tiny edits are ignored.
  *
  * Debounce scheme: each USER_EDIT save computes the edit ratio cheaply (no model) and stores it on the post's TemplateUse;
- * only when the ratio is at least LEARN_MIN_RATIO is ONE job enqueued per post per LEARN_WINDOW_MS (dedupeId
- * `style-learn:<documentId>:<window>`), delayed by LEARN_DELAY_MS so it reads the text after the user has settled.
+ * only when the ratio is at least LEARN_MIN_RATIO is a job enqueued, delayed by LEARN_DELAY_MS; the web layer keeps one
+ * pending token per post so a newer save supersedes the queued job (trailing debounce) and the job reads the latest text.
  */
 import { z } from "zod";
 import { StyleRulesSchema, type AiClient, type StyleProfile } from "@brandloop/ai";
-import { getEditPair, getLearnTarget, lastStyleVersionAt, saveLearnedRules, setTemplateUseEditRatio } from "@brandloop/db";
+import { getEditPair, getLearnTarget, prisma, saveLearnedRules, setTemplateUseEditRatio } from "@brandloop/db";
 import { isWritingRequest, learningGuard } from "../learning";
+import { compileHardRules, conflictWith, type HardRules } from "./rules";
 
 export const LEARN_MIN_RATIO = 0.05;
-export const LEARN_WINDOW_MS = 5 * 60_000;
 export const LEARN_DELAY_MS = 90_000;
 const MAX_PER_AREA = 7;
 const MAX_NEW = 3;
-const MAX_DROPPED = 3;
+const MAX_DROPPED = 1;
 const MAX_WORDS = 1500;
 const MAX_PHRASES = 20;
 
@@ -68,7 +68,7 @@ const SYSTEM =
   "Update the author's do/dont rules ONLY to capture HOW they write (hooks, rhythm, formatting, diction, closings, global) as shown by the edit. " +
   "Never record facts about the author or the post (names, companies, numbers, places, topics, opinions), never quote the passages, " +
   "and never turn a one-off change into a rule. Return the complete rules object: keep every existing rule that still holds, " +
-  "add at most 3 new rules, each under 200 characters, at most 7 per list. If the edit shows no clear habit, return the existing rules unchanged.";
+  "add at most 3 new rules, remove at most 1, each under 200 characters, at most 7 per list. If the edit shows no clear habit, return the existing rules unchanged.";
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 const grams = (s: string) => {
@@ -78,20 +78,56 @@ const grams = (s: string) => {
   return out;
 };
 
-/** A new rule must describe a habit: no digits, quotes, links or addresses, and no 3-word run copied from the edit. */
-function describesWriting(rule: string, source: Set<string>): boolean {
+const STOP = new Set("a an the and or of to in on at for with by is are be it its this that as from your you their they them not no never always do dont don't does use avoid prefer keep".split(" "));
+const contentWords = (s: string) => new Set(norm(s).replace(/[^\p{L}\s]/gu, " ").split(" ").filter((w) => w.length > 1 && !STOP.has(w)));
+/** The same instruction in other words: equal text, or one's content words (at least two) almost all in the other. */
+export function similarRule(a: string, b: string): boolean {
+  if (norm(a) === norm(b)) return true;
+  const x = contentWords(a);
+  const y = contentWords(b);
+  const small = Math.min(x.size, y.size);
+  return small >= 2 && [...x].filter((w) => y.has(w)).length / small >= 0.8;
+}
+
+const WRITING_VERB = /\b(?:use|avoid|keep|start|open|end|close|write|prefer|limit|cut|add|drop|break|lead|ask|put|skip|stick|vary|mix|place|finish|begin|favou?r|trim|split|lean|state|name|show)\b/i;
+const TEXT_FEATURE =
+  /\b(?:sentences?|lines?|words?|hooks?|lists?|bullets?|tone|length|endings?|questions?|emojis?|paragraphs?|blocks?|openings?|closings?|claims?|phrases?|verbs?|adjectives?|adverbs?|punctuation|sign-?offs?|cta|statements?|headers?|formatting|rhythm|contractions?|jargon|spacing|voice|stories|story|examples?|intro|opener|conclusion|takeaways?)\b/i;
+const ALLOWED_CAPS = new Set(["I", "LinkedIn", "CTA", "PS", "P.S", "English", "British", "American"]);
+
+/** A proper noun in a rule (a capitalised word that doesn't start a sentence) names a person, company or place: a fact. */
+function hasProperNoun(rule: string): boolean {
+  const tokens = rule.split(/\s+/).filter(Boolean);
+  return tokens.some((raw, i) => {
+    const t = raw.replace(/^[^\p{L}]+|[^\p{L}.]+$/gu, "").replace(/\.$/, "");
+    if (!t || !/^\p{Lu}/u.test(t) || ALLOWED_CAPS.has(t)) return false;
+    return i > 0 && !/[.!?:]$/.test(tokens[i - 1]!);
+  });
+}
+
+/**
+ * A learned rule must read as an instruction about writing: a writing verb and a text feature, no proper nouns, no digits,
+ * quotes, links or addresses, and no 3-word run copied from the edit.
+ */
+export function describesWriting(rule: string, source: Set<string> = new Set()): boolean {
   if (/\d|["“”«»]|https?:|www\.|@\w|\b\S+\.(?:com|io|co|org|net)\b/i.test(rule)) return false;
+  if (!WRITING_VERB.test(rule) || !TEXT_FEATURE.test(rule) || hasProperNoun(rule)) return false;
   for (const g of grams(rule)) if (source.has(g)) return false;
   return true;
 }
 
+/** Edit text is data: remove anything that could close or open the prompt's fences. */
+const fence = (s: string) => s.replace(/<\/?\s*(?:added|removed|current_rules)\s*>/gi, "");
+
 export type LearnResult = { rules: Rules; changed: boolean };
+export type LearnInput = { profile: StyleProfile; aiText: string; userText: string; hardRules?: HardRules };
 
 /**
- * Asks the model for updated rules from one edit, then enforces the limits in code: new rules must pass the learning
- * guard and the fact filter, at most MAX_NEW are added and MAX_DROPPED removed, and each list keeps at most 7.
+ * Asks the model for updated rules from one edit, then enforces the limits in code. A new rule must describe writing
+ * (describesWriting), pass the learning guard, not be a rule a revert suppressed, not contradict an opposite-side rule in
+ * its area, and not conflict with the user's hard rules (a `do` such as "use emojis" while emoji are forbidden). At most
+ * MAX_NEW rules are added and MAX_DROPPED removed per run; each list keeps at most 7.
  */
-export async function learnFromEdit(ai: AiClient, input: { profile: StyleProfile; aiText: string; userText: string }): Promise<LearnResult> {
+export async function learnFromEdit(ai: AiClient, input: LearnInput): Promise<LearnResult> {
   const old = input.profile.rules;
   const unchanged: LearnResult = { rules: old, changed: false };
   const delta = editDelta(input.aiText, input.userText);
@@ -101,11 +137,12 @@ export async function learnFromEdit(ai: AiClient, input: { profile: StyleProfile
   const proposed = await ai.json({
     model: "extract",
     system: SYSTEM,
-    prompt: `<current_rules>\n${JSON.stringify(old)}\n</current_rules>\n<removed>\n${delta.removed.join("\n")}\n</removed>\n<added>\n${addedText}\n</added>`,
+    prompt: `<current_rules>\n${JSON.stringify(old)}\n</current_rules>\n<removed>\n${fence(delta.removed.join("\n"))}\n</removed>\n<added>\n${fence(addedText)}\n</added>`,
     schema: z.object({ rules: StyleRulesSchema }),
   });
 
   const source = grams([...delta.removed, ...delta.added].join("\n"));
+  const suppressed = input.profile.learning?.suppressed ?? [];
   const have = (list: string[], r: string) => list.some((x) => norm(x) === norm(r));
   let newCount = 0;
   let dropped = 0;
@@ -113,6 +150,7 @@ export async function learnFromEdit(ai: AiClient, input: { profile: StyleProfile
   for (const area of AREAS) {
     const next = { do: [] as string[], dont: [] as string[] };
     for (const side of ["do", "dont"] as const) {
+      const other = side === "do" ? "dont" : "do";
       const before = old[area][side];
       const out = [...before];
       const proposedList = proposed.rules[area][side];
@@ -121,6 +159,9 @@ export async function learnFromEdit(ai: AiClient, input: { profile: StyleProfile
       const verdict = learningGuard(addedText, fresh);
       for (const r of verdict.allowed) {
         if (newCount >= MAX_NEW || !describesWriting(r, source)) continue;
+        if (suppressed.some((x) => similarRule(x, r))) continue;
+        if (old[area][other].some((x) => similarRule(x, r))) continue;
+        if (side === "do" && input.hardRules && conflictWith(r, input.hardRules)) continue;
         out.push(r.trim());
         newCount++;
       }
@@ -149,19 +190,25 @@ export type LearnOutcome = "skipped" | "unchanged" | "learned";
 
 /** The job body: compare the latest AI version with the current text and, on a real edit, save the new rules as a version. */
 export async function runStyleLearn(ai: AiClient, input: { profileId: string; documentId: string }): Promise<LearnOutcome> {
-  const pair = await getEditPair(input.profileId, input.documentId);
-  if (!pair) return "skipped";
-  const { ratio } = editDelta(pair.aiText, pair.userText);
-  await setTemplateUseEditRatio(input.profileId, input.documentId, ratio);
-  if (ratio < LEARN_MIN_RATIO) return "skipped";
+  const whole = await getEditPair(input.profileId, input.documentId);
+  if (!whole) return "skipped";
+  await setTemplateUseEditRatio(input.profileId, input.documentId, editDelta(whole.aiText, whole.userText).ratio);
   // Only a user's own style is learned into; a preset (or no style) is left alone.
   const target = await getLearnTarget(input.profileId);
   if (!target) return "skipped";
-  // This text was already learned from (or the style changed since): don't learn from it twice.
-  const last = await lastStyleVersionAt(target.style.id);
-  if (last && last >= pair.currentAt) return "skipped";
-  const result = await learnFromEdit(ai, { profile: target.profile, aiText: pair.aiText, userText: pair.userText });
+  // Only edits newer than the last run for this post are read (a revert keeps these marks, so it stays reverted).
+  const learning = { suppressed: target.profile.learning?.suppressed ?? [], lastLearnedVersion: { ...(target.profile.learning?.lastLearnedVersion ?? {}) } };
+  const pair = await getEditPair(input.profileId, input.documentId, learning.lastLearnedVersion[input.documentId]);
+  if (!pair || editDelta(pair.aiText, pair.userText).ratio < LEARN_MIN_RATIO) return "skipped";
+  const rulesDoc = await prisma.memoryDoc.findFirst({ where: { profileId: input.profileId, key: "writing/rules" }, select: { content: true } });
+  const result = await learnFromEdit(ai, {
+    profile: target.profile,
+    aiText: pair.aiText,
+    userText: pair.userText,
+    hardRules: compileHardRules(rulesDoc?.content ?? "").rules,
+  });
   if (!result.changed) return "unchanged";
-  const saved = await saveLearnedRules(input.profileId, target.style.id, target.style.profileVersion, result.rules);
+  learning.lastLearnedVersion[input.documentId] = pair.currentVersion;
+  const saved = await saveLearnedRules(input.profileId, target.style.id, target.style.profileVersion, result.rules, learning);
   return saved ? "learned" : "skipped";
 }
