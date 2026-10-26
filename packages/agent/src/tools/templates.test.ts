@@ -1,4 +1,4 @@
-import { getOrCreateChat, listTemplates, prisma, upsertMemory } from "@brandloop/db";
+import { getChatDocument, getOrCreateChat, listTemplates, prisma, upsertMemory } from "@brandloop/db";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { TurnContext } from "../context";
@@ -112,6 +112,20 @@ describe("pinned template", () => {
     expect(out.payload.readiness).toBe("needs-user-input");
     const created = await createDocumentFromHandoff(ctx, { title: "T", kind: "text", specialistHandoffToolCallId: "call_w" });
     expect(created).toMatchObject({ status: "needs-user-input" });
+    expect(await uses()).toHaveLength(0);
+  });
+
+  it("a ready draft despite missing inputs is overridden: needs-user-input and no post", async () => {
+    const needy = (await listTemplates({ type: "POST", limit: 2_000 })).items.find((t) => t.needs.length === 1 && t.needs[0] === "number")!;
+    ctx.ai = fakeAi(model());
+    const out = await write("call_w", { templateSlug: needy.slug });
+    expect(out.payload.readiness).toBe("needs-user-input");
+    expect(out.payload.draft).toBe("");
+    expect(out.missingInput.join(" ")).toMatch(/number or metric/);
+    expect(out.parentAction).toBe("ask-user");
+    const created = await createDocumentFromHandoff(ctx, { title: "T", kind: "text", specialistHandoffToolCallId: "call_w" });
+    expect(created).toMatchObject({ status: "needs-user-input" });
+    expect(await getChatDocument(ctx.profileId, ctx.chatId)).toBeNull();
     expect(await uses()).toHaveLength(0);
   });
 

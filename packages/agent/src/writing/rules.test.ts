@@ -32,9 +32,18 @@ describe("compileHardRules", () => {
     ["- No links in the post", "forbidLinks"],
     ["- No bullet lists", "forbidLists"],
     ["- Never use numbered lists", "forbidLists"],
+    ["- Don't use bullet points", "forbidLists"],
+    ["- Avoid lists entirely", "forbidLists"],
   ] as const)("compiles %s", (line, rule) => {
     expect(compileHardRules(`## Don't\n${line}`).matched.map((m) => m.rule)).toContain(rule);
   });
+
+  it.each(["- No more than 3 bullets", "- Avoid long lists of tips", "- Don't use em dashes in bullet points", "- Keep lists short, at most 5 items"])(
+    "does not read %s as a ban on lists",
+    (line) => {
+      expect(compileHardRules(line).matched.map((m) => m.rule)).not.toContain("forbidLists");
+    },
+  );
 
   it("reads the numbers and values", () => {
     const { rules } = compileHardRules("- No walls of text (>3 lines)\n- British spelling\n## Banned words\n- synergy, leverage");
