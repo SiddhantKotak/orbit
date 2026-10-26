@@ -19,10 +19,12 @@ for (const size of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }])
     await expect(composer).toBeVisible();
     const box = (await composer.boundingBox())!;
     expect(box.y + box.height).toBeLessThanOrEqual(size.height);
-    const overflow = await page.evaluate(() => {
-      const w = document.querySelector(".lenis") as HTMLElement | null;
-      return w ? getComputedStyle(w).overflowY : "none";
-    });
-    expect(overflow).toBe("hidden");
+    // The Lenis wrapper is gone from the app shell; "never scrolls the page" now means nothing scrolls at document level.
+    const scrolls = await page.evaluate(() => ({
+      doc: document.documentElement.scrollHeight - innerHeight,
+      body: document.body.scrollHeight - innerHeight,
+    }));
+    expect(scrolls.doc).toBeLessThanOrEqual(1);
+    expect(scrolls.body).toBeLessThanOrEqual(1);
   });
 }
