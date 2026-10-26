@@ -19,6 +19,7 @@ import {
   NoSuchToolError,
   hasToolCall,
   stepCountIs,
+  type StopCondition,
   streamText,
   ToolCallRepairError,
   toUIMessageStream,
@@ -179,7 +180,7 @@ function failedOutput(output: unknown): boolean {
 /** The picker this reply left open, for the task ledger. */
 function pendingPicker(parts: Part[]): { id: string; question: string } | null {
   for (const p of [...(parts as { type: string; toolCallId?: string; state?: string; output?: unknown }[])].reverse()) {
-    if (p.type !== "tool-presentOptions" || p.state !== "output-available" || typeof p.toolCallId !== "string") continue;
+    if ((p.type !== "tool-presentOptions" && p.type !== "tool-generateIdeas") || p.state !== "output-available" || typeof p.toolCallId !== "string") continue;
     const question = (p.output as { question?: unknown } | undefined)?.question;
     if (typeof question === "string") return { id: p.toolCallId, question };
   }
@@ -325,6 +326,10 @@ export async function runChatTurn(
     return text;
   };
 
+  // The ideas step ends the turn too, once it has put its picker on screen (a failed step lets the model explain).
+  const ideasShown: StopCondition<typeof tools> = ({ steps }) =>
+    (steps.at(-1)?.toolResults ?? []).some((r) => r.toolName === "generateIdeas" && typeof r.output === "object" && r.output !== null);
+
   const stream = createUIMessageStream<ChatUIMessage>({
     originalMessages: window,
     generateId: () => assistantId,
@@ -336,7 +341,7 @@ export async function runChatTurn(
         messages: modelMessages,
         tools,
         // A picker ends the turn: the user answers it, then the next turn writes.
-        stopWhen: [stepCountIs(LIMITS.steps), hasToolCall("presentOptions")],
+        stopWhen: [stepCountIs(LIMITS.steps), hasToolCall("presentOptions"), ideasShown],
         maxOutputTokens: LIMITS.maxOutputTokens,
         abortSignal: AbortSignal.any([controller.signal, AbortSignal.timeout(deps.turnTimeoutMs ?? TURN_TIMEOUT_MS)]),
         // Another instance may have asked this run to stop (POST /api/chat/stop landed elsewhere).

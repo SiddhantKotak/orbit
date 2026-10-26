@@ -56,6 +56,8 @@ export type IdeasContext = {
   coreMemory: string;
   recentDrafts: { title: string; text: string }[];
   previous: PreviousIdea[];
+  /** The material each idea must be built from, assigned by the server before generation (same step as the chat's ideas). Absent: no assignment. */
+  assigned?: { slot: number; badge: string; text: string }[];
   /** Monday of the current week, YYYY-MM-DD, in the profile's time zone. */
   weekOf: string;
 };

@@ -54,7 +54,7 @@ describe("createScriptedChatModel", () => {
   const all = ["saveMemory", "searchKB", "viewMemory", "delegateWriting", "createDocument"];
 
   it("routes 'remember' to saveMemory, then replies once the tool ran", async () => {
-    const model = createScriptedChatModel();
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
     const first = await play(model as never, [user("Remember that I run a design studio in Pune")], all);
     expect(calls(first)).toEqual([
       { toolName: "saveMemory", input: { category: "about", topic: null, facts: ["I run a design studio in Pune"] } },
@@ -65,7 +65,7 @@ describe("createScriptedChatModel", () => {
   });
 
   it("routes 'knowledge' to searchKB and anything else to a plain reply", async () => {
-    const model = createScriptedChatModel();
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
     expect(calls(await play(model as never, [user("Search my knowledge for pricing")], all))[0]!.toolName).toBe("searchKB");
     expect(textOf(await play(model as never, [user("Hello")], all))).toBe("Mock reply.");
   });
@@ -85,7 +85,7 @@ describe("createScriptedChatModel", () => {
   }, 20_000);
 
   it("routes 'draft' to delegateWriting then createDocument, but only with tools it was given", async () => {
-    const model = createScriptedChatModel();
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
     expect(calls(await play(model as never, [user("Draft a post about hiring")], all))[0]!.toolName).toBe("delegateWriting");
     const first = calls(await play(model as never, [user("Draft a post about hiring")], all))[0]!;
     expect((first.input as { specialty: string }).specialty).toBe("post");
@@ -98,7 +98,7 @@ describe("createScriptedChatModel", () => {
   });
 
   it("shows angles only for a bare topic and writes a directed request directly", async () => {
-    const model = createScriptedChatModel();
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
     const tools = ["presentOptions", "delegateWriting", "createDocument"];
     expect(calls(await play(model as never, [user("Create a post on llm")], tools))[0]!.toolName).toBe("presentOptions");
     for (const msg of ["Draft a post about the difference between an MVP and a POC", "Write a post on MVP vs POC", "Write a post on why pricing fails"]) {
@@ -115,7 +115,7 @@ describe("createScriptedChatModel: editing", () => {
   };
 
   it("routes 'punchier' to proposeDocumentEdits on the open post's first line, then replies", async () => {
-    const model = createScriptedChatModel();
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
     const ask = user("Make the opening punchier");
     expect(calls(await play(model as never, [system, ask], tools))).toEqual([
       { toolName: "proposeDocumentEdits", input: { instruction: "Make the opening punchier", targetText: "The opening line here." } },
@@ -126,7 +126,7 @@ describe("createScriptedChatModel: editing", () => {
   });
 
   it("routes 'shorter' to updateDocument and 'review' to delegateEditing", async () => {
-    const model = createScriptedChatModel();
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
     const edit = calls(await play(model as never, [system, user("Make it shorter")], tools))[0]!;
     expect(edit.toolName).toBe("updateDocument");
     expect(edit.input).toMatchObject({ editScope: "whole-document", restoreVersion: null, editRequirements: [expect.any(String)] });
@@ -193,5 +193,29 @@ describe("scriptedAi", () => {
       z.object({ ideas: z.array(z.object({ title: z.string() })) }),
     ];
     for (const schema of earlier) expect(schema.safeParse(SCRIPTED_STYLE).success).toBe(false);
+  });
+});
+
+describe("scripted chat model: ideas (W11)", () => {
+  it("routes post ideas to the ideas step, before the research check, and with the asked count", async () => {
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
+    const tools = ["generateIdeas", "researchTopic", "delegateWriting"];
+    expect(calls(await play(model, [user("Give me 4 post ideas for this week")], ["generateIdeas"]))).toEqual([{ toolName: "generateIdeas", input: { count: 4 } }]);
+    // With web search on, "this week" researches first and the ideas follow.
+    expect(calls(await play(model, [user("Give me 5 post ideas for this week")], tools))[0]!.toolName).toBe("researchTopic");
+    expect(calls(await play(model, [user("Give me 5 post ideas for this week"), toolResult("researchTopic")], tools))).toEqual([{ toolName: "generateIdeas", input: { count: 5 } }]);
+  });
+
+  it("writes the idea after a pick, never an ideas set again", async () => {
+    const model = createScriptedChatModel() as ReturnType<typeof scriptedModel>;
+    const system = { role: "system", content: "<picked_angle>\nQuestion asked: Which idea should we develop first?\nThe user picked: X\nWriting brief for this angle:\nOpening line to start from: X\n</picked_angle>" };
+    const out = calls(await play(model, [system, user("X")], ["generateIdeas", "delegateWriting"]));
+    expect(out.map((c) => c.toolName)).toEqual(["delegateWriting"]);
+  });
+
+  it("the specialist mock writes one idea per assigned slot", async () => {
+    const prompt = "<assignments>\nSlot 1 | From your story | opening purpose: Bold claim: x\n<source>\nLost a client by overpromising\n</source>\n\nSlot 2 | Pillar: Hiring | opening purpose: y\n<source>\nHiring: lessons\n</source>\n</assignments>";
+    const out = (await scriptedAi().json({ model: "extract", system: "", prompt, schema: z.object({ ideas: z.array(z.object({ slot: z.number(), hook: z.string(), angle: z.string(), why: z.string() })) }) })) as { ideas: { slot: number }[] };
+    expect(out.ideas.map((i) => i.slot)).toEqual([1, 2]);
   });
 });

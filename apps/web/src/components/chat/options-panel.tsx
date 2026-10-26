@@ -91,6 +91,11 @@ export function OptionsPanel({
                     </span>
                   )}
                 </span>
+                {o.badge && (
+                  <span data-option-badge="" className="inline-flex h-5 w-fit items-center rounded-pill border border-line-3 px-2 text-[11px] font-medium text-text-2">
+                    {o.badge}
+                  </span>
+                )}
                 {o.explainer && <span className="text-[12.5px] leading-[1.45] text-text-3">{o.explainer}</span>}
               </span>
               <ChevronRight

@@ -3,7 +3,7 @@ export type OptionsPanel = {
   pickerToolCallId: string;
   preamble: string | null;
   question: string;
-  options: { id: string; label: string; explainer: string }[];
+  options: { id: string; label: string; explainer: string; badge?: string }[];
   recommendedOptionId: string | null;
   allowFreeInput: boolean;
   freeInputPlaceholder: string;
@@ -14,12 +14,14 @@ type MessageLike = { role: string; parts: unknown[]; metadata?: unknown };
 
 /** The panel of a finished presentOptions call, or null for anything else (a partial or malformed output). */
 export function parseOptionsPanel(part: PartLike): OptionsPanel | null {
-  if (part.type !== "tool-presentOptions" || part.state !== "output-available" || typeof part.toolCallId !== "string") return null;
+  if ((part.type !== "tool-presentOptions" && part.type !== "tool-generateIdeas") || part.state !== "output-available" || typeof part.toolCallId !== "string") return null;
   const o = part.output as Partial<OptionsPanel> & { shown?: unknown } | null;
   if (!o || o.shown !== true || typeof o.question !== "string" || !Array.isArray(o.options)) return null;
   const options = o.options.flatMap((x) => {
-    const r = x as { id?: unknown; label?: unknown; explainer?: unknown };
-    return typeof r.id === "string" && typeof r.label === "string" && typeof r.explainer === "string" ? [{ id: r.id, label: r.label, explainer: r.explainer }] : [];
+    const r = x as { id?: unknown; label?: unknown; explainer?: unknown; badge?: unknown };
+    return typeof r.id === "string" && typeof r.label === "string" && typeof r.explainer === "string"
+      ? [{ id: r.id, label: r.label, explainer: r.explainer, ...(typeof r.badge === "string" && r.badge ? { badge: r.badge } : {}) }]
+      : [];
   });
   if (options.length < 2) return null;
   return {

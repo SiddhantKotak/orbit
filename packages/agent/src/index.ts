@@ -81,3 +81,6 @@ export type { SuggestVisualsOutput, ProposeVisualOutput, EditVisualOutput, Visua
 
 export { policyScreen, screenInput, screenOutput, SAFETY_RULES, type ChatSafety, type Screen } from "./safety";
 export { editDelta, learnFromEdit, noteDocumentEdit, runStyleLearn, LEARN_DELAY_MS, LEARN_MIN_RATIO, type EditDelta, type LearnResult, type LearnOutcome } from "./writing/learn-edits";
+
+export { assignSources, isIdeasRequest, sourceBadge, type AssignInput, type IdeaSource, type IdeaSourceKind } from "./writing/ideas";
+export { loadIdeaMaterial, type IdeaMaterial } from "./tools/ideas";

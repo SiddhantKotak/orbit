@@ -6,6 +6,7 @@ import { analyzeTools } from "./analyze";
 import { researchTools } from "./research";
 import { documentTools } from "./documents";
 import { hookTools } from "./hooks";
+import { ideaTools } from "./ideas";
 import { knowledgeTools } from "./knowledge";
 import { memoryTools } from "./memory";
 import { optionTools } from "./options";
@@ -14,7 +15,7 @@ import { templateTools } from "./templates";
 import { visualTools } from "./visuals";
 
 function baseTools(ctx: TurnContext) {
-  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...analyzeTools(ctx), ...optionTools(), ...templateTools(ctx) };
+  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...ideaTools(ctx), ...analyzeTools(ctx), ...optionTools(), ...templateTools(ctx) };
 }
 
 /**
