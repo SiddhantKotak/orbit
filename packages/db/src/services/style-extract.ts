@@ -134,3 +134,16 @@ export async function extractOwnStyle(ai: AiClient, profileId: string, voiceStyl
     throw err;
   }
 }
+
+/** The posts in a style's corpus, newest first, for the writer's few-shot examples. */
+export async function listCorpusPosts(
+  voiceStyleId: string,
+  limit = 50,
+): Promise<{ text: string; source: CorpusSource; postedAt: Date | null }[]> {
+  return prisma.styleCorpusPost.findMany({
+    where: { voiceStyleId },
+    orderBy: [{ postedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    take: limit,
+    select: { text: true, source: true, postedAt: true },
+  });
+}

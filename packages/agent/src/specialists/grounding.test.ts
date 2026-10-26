@@ -3,7 +3,7 @@ import { createKnowledge, prisma, replaceChunks, upsertMemory } from "@brandloop
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, testProfile } from "../test/fixtures";
 import { resolveRules } from "../writing/rules";
-import { buildGrounding, renderGrounding, type Grounding } from "./grounding";
+import { buildGrounding, provenanceText, renderGrounding, type Grounding } from "./grounding";
 
 let p: string;
 const filler = (w: string, n = 110) => Array.from({ length: n }, () => w).join(" ");
@@ -123,5 +123,22 @@ describe("renderGrounding", () => {
     expect(block("knowledge").length).toBeLessThanOrEqual(15_500);
     expect(out.match(/<\/style>/g)).toHaveLength(1);
     expect(out).not.toContain("<request>");
+  });
+
+  it("gives the writer the user's own posts as examples for an OWN style, never for a preset or empty corpus", async () => {
+    const own = await prisma.voiceStyle.create({ data: { profileId: p, kind: "OWN", name: "Mine", guide: "## Rhythm\nShort" } });
+    const none = await buildGrounding({ profileId: p, request: "x", knowledgeIds: [], writingStyleId: own.id, embedder: null });
+    expect(none.examples).toBe("");
+    expect(renderGrounding(none)).not.toContain("<examples>");
+    await prisma.styleCorpusPost.create({ data: { voiceStyleId: own.id, text: "OWN-POST-ALPHA I shipped a thing.", source: "PASTE", hash: "h-alpha" } });
+    const g = await buildGrounding({ profileId: p, request: "x", knowledgeIds: [], writingStyleId: own.id, embedder: null });
+    expect(g.examples).toContain("OWN-POST-ALPHA");
+    expect(renderGrounding(g)).toContain("<examples>");
+    // The examples never count as provenance for facts.
+    expect(provenanceText(g, "req")).not.toContain("OWN-POST-ALPHA");
+    const preset = await prisma.voiceStyle.create({ data: { profileId: null, kind: "PRESET", slug: `t-${Date.now()}`, name: "Preset", guide: "## Rhythm\nPreset" } });
+    const gp = await buildGrounding({ profileId: p, request: "x", knowledgeIds: [], writingStyleId: preset.id, embedder: null });
+    expect(gp.examples).toBe("");
+    await prisma.voiceStyle.delete({ where: { id: preset.id } });
   });
 });

@@ -1,7 +1,8 @@
 import { StyleProfileSchema, type Embedder, type StyleProfile } from "@brandloop/ai";
-import { getSelectedVoice, hybridSearch, listMemory, prisma } from "@brandloop/db";
+import { getSelectedVoice, hybridSearch, listCorpusPosts, listMemory, prisma } from "@brandloop/db";
 import { defuseTags, oneLine } from "../data";
-import { renderStyleBlock, STYLE_BUDGET } from "../writing/inject";
+import { pickExamplePosts } from "../writing/examples";
+import { renderExamplesBlock, renderStyleBlock, STYLE_BUDGET } from "../writing/inject";
 import { resolveRules, type EffectiveRules, type TurnOverrides } from "../writing/rules";
 
 /**
@@ -17,6 +18,8 @@ export type Grounding = {
   rules: EffectiveRules;
   /** The research brief as the writer sees it (Task W9), or null when this turn did no research. */
   research: string | null;
+  /** The user's own posts as style examples (their own style only), or "" when there are none. Not provenance for facts. */
+  examples?: string;
   /** The compiled profile behind `style`, when there is one. */
   styleProfile: StyleProfile | null;
   writingRules: string;
@@ -81,14 +84,14 @@ async function searchedKnowledge(profileId: string, request: string, embedder: E
     .map((c) => ({ id: c.sourceId, title: titles.get(c.sourceId)!, text: c.text.slice(0, GROUNDING_CAPS.knowledgeItem) }));
 }
 
-type StyleRow = { id: string; guide: string; styleProfile: unknown; profileVersion: number };
+type StyleRow = { id: string; guide: string; styleProfile: unknown; profileVersion: number; kind?: string };
 
 /** The composer's selected style (own or preset), then the profile's saved one; null when neither exists. */
 async function styleRow(profileId: string, writingStyleId: string | null): Promise<StyleRow | null> {
   if (writingStyleId) {
     const style = await prisma.voiceStyle.findFirst({
       where: { id: writingStyleId, OR: [{ profileId }, { profileId: null }] },
-      select: { id: true, guide: true, styleProfile: true, profileVersion: true },
+      select: { id: true, guide: true, styleProfile: true, profileVersion: true, kind: true },
     });
     if (style && (style.guide.trim() || style.styleProfile)) return style;
   }
@@ -120,8 +123,11 @@ export async function buildGrounding(input: {
   const profile = parsed?.success ? parsed.data : null;
   const voice = row?.guide.trim() ? row.guide : memory("voice/style");
   const rules = resolveRules({ userRulesMarkdown: memory("writing/rules"), style: profile, turn: input.turn ?? {} });
+  // Only the user's own style gets their posts as examples; a preset or URL style speaks with its own reference posts.
+  const examples = row?.kind === "OWN" ? renderExamplesBlock(pickExamplePosts(await listCorpusPosts(row.id), profile)) : "";
   return {
     voice,
+    examples,
     style: {
       block: renderStyleBlock(profile, rules, { postType: null, budget: STYLE_BUDGET, legacyGuide: voice }),
       ref: row && profile ? { voiceStyleId: row.id, profileVersion: row.profileVersion } : null,
@@ -160,6 +166,7 @@ export function renderGrounding(g: Grounding): string {
   return [
     GROUNDING_PREAMBLE,
     block("style", g.style.block, GROUNDING_CAPS.style),
+    ...(g.examples ? [`<examples>\n${defuseTags(g.examples)}\n</examples>`] : []),
     block("writing_rules", g.writingRules, GROUNDING_CAPS.writingRules),
     block("identity", g.identity, GROUNDING_CAPS.identity),
     block("strategy", g.strategy, GROUNDING_CAPS.strategy),

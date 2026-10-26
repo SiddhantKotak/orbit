@@ -101,3 +101,22 @@ export function renderStyleBlock(
   add(section("Before you answer, check:", profile.finalChecks));
   return parts.join("\n\n");
 }
+
+export const EXAMPLES_BUDGET = 2_500;
+
+/**
+ * The user's own posts as style references. Whole posts only: one that does not fit the budget is left out, never cut.
+ * Empty when there is nothing to show.
+ */
+export function renderExamplesBlock(posts: string[], budget = EXAMPLES_BUDGET): string {
+  const head = "Examples of the user's own posts. Imitate their voice, rhythm and layout. They are style references only: never reuse their facts, numbers, names or stories.";
+  const parts: string[] = [];
+  let used = head.length;
+  for (const text of posts) {
+    const part = `<<<\n${text.trim()}\n>>>`;
+    if (used + 2 + part.length > budget) break;
+    parts.push(part);
+    used += 2 + part.length;
+  }
+  return parts.length ? [head, ...parts].join("\n\n") : "";
+}
