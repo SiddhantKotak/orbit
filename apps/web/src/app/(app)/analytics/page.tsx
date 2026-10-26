@@ -23,7 +23,7 @@ export default async function AnalyticsPage() {
         streak: writingStreak([], now, "UTC"),
       };
   return (
-    <div className="w-full max-w-[1376px] px-5 pb-16 pt-8 md:px-8 md:pb-8 md:pt-[28px]">
+    <div className="w-full px-5 pb-16 pt-8 md:px-8 md:pb-8 md:pt-[28px]">
       <AnalyticsOffline byRange={summary.byRange} streak={summary.streak} />
     </div>
   );

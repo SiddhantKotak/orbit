@@ -62,8 +62,8 @@ const APPS = [
 
 // Literal classes so Tailwind sees them (system §9: every grid uses minmax(min(X,100%),1fr), no h-scroll at 390).
 const GRIDS = {
-  260: "grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))]",
-  220: "grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]",
+  260: "grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))]",
+  220: "grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))]",
   200: "grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(200px,100%),1fr))]",
 } as const;
 const grid = (min: keyof typeof GRIDS) => GRIDS[min];
@@ -75,8 +75,8 @@ function Card({ children, className }: { children: ReactNode; className?: string
 export default function IntegrationsPage() {
   return (
     <>
-      <PageHeader className="max-w-[1120px]" title="Integrations" subtitle="Connect the profiles Orbit uses for publishing, analytics and personalization." />
-      <PageBody className="flex max-w-[1120px] flex-col gap-9">
+      <PageHeader title="Integrations" subtitle="Connect the profiles Orbit uses for publishing, analytics and personalization." />
+      <PageBody className="flex flex-col gap-9">
         <section aria-labelledby="int-social">
           <SectionHeading id="int-social" title="Social accounts" />
           <ul className={grid(260)}>

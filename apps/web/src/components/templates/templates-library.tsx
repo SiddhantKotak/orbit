@@ -196,7 +196,7 @@ export function TemplatesLibrary() {
           <p className="text-[13px] text-text-3" data-template-count>
             {total} {total === 1 ? "template" : "templates"}
           </p>
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 min-[1500px]:grid-cols-4">
             {shown.map((t) => (
               <li key={t.id} data-template-card={t.slug} className="orbit-panel flex flex-col gap-3 p-5">
                 <button type="button" onClick={() => setOpen(t)} className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-card-sm text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text">

@@ -33,6 +33,7 @@ const outDir = process.env.AUDIT_DIR ?? path.join("test-results", "layout-audit"
 const shots = process.env.AUDIT_SHOTS === "1";
 // AUDIT_WIDTHS=1440,390 and AUDIT_THEMES=dark narrow a run while iterating.
 const viewports = [
+  { width: 1920, height: 1080 },
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },
   { width: 768, height: 1024 },
@@ -346,7 +347,7 @@ async function settle(page: Page) {
   await page.evaluate(() => document.getAnimations().forEach((a) => a.finish?.()));
 }
 
-test("layout audit: every screen at four widths in both themes", async ({ page }) => {
+test("layout audit: every screen at five widths in both themes", async ({ page }) => {
   await mkdir(outDir, { recursive: true });
   const issues: Issue[] = [];
   const createdChats = new Set<string>();

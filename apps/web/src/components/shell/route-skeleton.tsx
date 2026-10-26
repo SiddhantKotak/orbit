@@ -23,9 +23,9 @@ function Frame({ children, className, fill }: { children: ReactNode; className?:
 const Bar = ({ className }: { className?: string }) => <div className={cn("skeleton", className)} />;
 
 /** The `PageHeader` footprint: a 40 px page title and an optional subtitle line. */
-function Header({ width = "w-56", subtitle = true, max = "max-w-[880px]" }: { width?: string; subtitle?: boolean; max?: string }) {
+function Header({ width = "w-56", subtitle = true, max = "max-w-none" }: { width?: string; subtitle?: boolean; max?: string }) {
   return (
-    <div className={cn("w-full px-5 pt-8 md:px-8 md:pt-[28px]", max)}>
+    <div className={cn("mx-auto w-full px-5 pt-8 md:px-8 md:pt-[28px]", max)}>
       <Bar className={cn("h-10 rounded-[10px]", width)} />
       {subtitle && <Bar className="mt-3.5 h-4 w-[min(420px,80%)]" />}
     </div>
@@ -41,7 +41,7 @@ export function PageSkeleton({ rows = 3, max = "max-w-[880px]", title = "w-56" }
   return (
     <Frame>
       <Header width={title} max={max} />
-      <div className={cn("flex w-full flex-col gap-4 px-5 pb-16 pt-7 md:px-8", max)}>
+      <div className={cn("mx-auto flex w-full flex-col gap-4 px-5 pb-16 pt-7 md:px-8", max)}>
         {Array.from({ length: rows }, (_, i) => (
           <Panel key={i} className="flex flex-col gap-3">
             <Bar className="h-4 w-1/3" />
@@ -57,7 +57,7 @@ export function PageSkeleton({ rows = 3, max = "max-w-[880px]", title = "w-56" }
 /** Wide dashboards (analytics, engage, activities, sprint): title, then a row of stat panels and a large panel. */
 export function DashboardSkeleton({ stats = 3 }: { stats?: number }) {
   return (
-    <Frame className="w-full max-w-[1376px] px-5 pb-16 pt-8 md:px-8 md:pt-[28px]">
+    <Frame className="w-full px-5 pb-16 pt-8 md:px-8 md:pt-[28px]">
       <Bar className="h-10 w-60 rounded-[10px]" />
       <div className="mt-7 grid gap-4 md:grid-cols-3">
         {Array.from({ length: stats }, (_, i) => (
@@ -169,8 +169,8 @@ export function EditorSkeleton() {
 export function GridSkeleton({ cards = 6 }: { cards?: number }) {
   return (
     <Frame>
-      <Header max="max-w-[1120px]" />
-      <div className="grid w-full max-w-[1120px] gap-4 px-5 pb-16 pt-7 md:grid-cols-2 md:px-8 xl:grid-cols-3">
+      <Header max="max-w-none" />
+      <div className="grid w-full max-w-none gap-4 px-5 pb-16 pt-7 md:grid-cols-2 md:px-8 xl:grid-cols-3">
         {Array.from({ length: cards }, (_, i) => (
           <Panel key={i} className="flex h-[180px] flex-col gap-3">
             <div className="flex gap-2">

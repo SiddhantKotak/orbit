@@ -44,7 +44,7 @@ export function SprintView({ sprint, pinned }: { sprint: Sprint; pinned: boolean
   const firstMissed = sprint.days.find((d) => d.status === "missed");
 
   return (
-    <div className="w-full max-w-[1240px] px-5 pb-16 pt-8 md:px-8 md:pt-[28px]">
+    <div className="w-full px-5 pb-16 pt-8 md:px-8 md:pt-[28px]">
       <header className="orbit-rise flex flex-wrap items-end justify-between gap-x-6 gap-y-5">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="type-page-title text-text focus-visible:outline-none">30-day sprint</h1>

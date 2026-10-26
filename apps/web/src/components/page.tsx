@@ -3,7 +3,7 @@ import { StatusPill, cn } from "@brandloop/ui";
 
 /**
  * Orbit page header (screens.md B12, p14): `page-title` h1, an optional one-line subtitle in `text-2`, actions on the
- * right. Not sticky: Orbit's sectioned screens scroll as one sheet. Left-aligned to the main padding (`28px 32px`); pass the same `max-w-*` as the `PageBody` so actions line up with it.
+ * right. Not sticky: Orbit's sectioned screens scroll as one sheet. Fills the main column (side padding = `--gutter`); text-heavy screens pass the same `max-w-*` as the `PageBody`, and both centre in the column so actions line up.
  */
 export function PageHeader({
   title,
@@ -17,7 +17,7 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("w-full max-w-[880px] px-(--gutter) pt-6 md:pt-8", className)}>
+    <header className={cn("mx-auto w-full px-(--gutter) pt-6 md:pt-8", className)}>
       {/* Actions sit on the title's line, centred on it (not on the subtitle's last line), and wrap under it when narrow. */}
       <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <h1 className="type-page-title min-w-0 text-text focus-visible:outline-none">{title}</h1>
@@ -28,9 +28,9 @@ export function PageHeader({
   );
 }
 
-/** Main column under a `PageHeader`: same left edge, `max-width` per screen (forms 760, lists 880, grids 1120). */
+/** Main column under a `PageHeader`: full width by default (grids grow); readable screens cap it (forms 760, prose 880) and sit centred. */
 export function PageBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("w-full max-w-[880px] px-(--gutter) pb-16 pt-8", className)}>{children}</div>;
+  return <div className={cn("mx-auto w-full px-(--gutter) pb-16 pt-8", className)}>{children}</div>;
 }
 
 /** Section heading inside a page (p14 "Social accounts"): 14 / 500 `text-2`, an optional note after a separator. */
@@ -75,8 +75,8 @@ export function Upcoming({ title, description, points }: { title: string; descri
   const id = `upcoming-${title.replace(/\W+/g, "-").toLowerCase()}`;
   return (
     <>
-      <PageHeader title={title} subtitle={description} />
-      <PageBody>
+      <PageHeader className="max-w-[880px]" title={title} subtitle={description} />
+      <PageBody className="max-w-[880px]">
         <section aria-labelledby={id} className="rounded-card border border-dashed border-line-3 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 id={id} className="type-card-title text-text">

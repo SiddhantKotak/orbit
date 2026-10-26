@@ -43,7 +43,7 @@ export function ImageLibrary() {
       {items.length === 0 ? (
         <EmptyState title="No images yet" body="Open a post and choose Add a visual, or ask the chat to suggest some images." action={<Button asChild><Link href="/posts">Go to your posts</Link></Button>} />
       ) : (
-        <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 min-[1500px]:grid-cols-5">
           {items.map((item) => (
             <li key={item.id} data-library-item={item.id} className="orbit-panel flex flex-col overflow-hidden">
               <div className="aspect-[4/5] bg-ground">
