@@ -1,4 +1,4 @@
-/** Fifteen kinds of LinkedIn post, described in our own words. */
+/** Nineteen kinds of LinkedIn post, described in our own words. */
 export type Category = { id: string; label: string; description: string };
 
 export const CATEGORIES: readonly Category[] = [
@@ -17,4 +17,8 @@ export const CATEGORIES: readonly Category[] = [
   { id: "engagement", label: "Question to the audience", description: "A focused question that invites specific answers." },
   { id: "authority", label: "Authority", description: "Shows depth through a specific, checkable insight." },
   { id: "personal", label: "Personal", description: "A human moment that shows who the author is." },
+  { id: "lead-gen", label: "Lead generation", description: "Offers something useful and invites the right reader to take one clear next step." },
+  { id: "curated", label: "Curated", description: "Gathers a few outside things worth reading and adds the author's verdict on each." },
+  { id: "promotional", label: "Promotional", description: "Presents an offer, what it does for the buyer and how to get it." },
+  { id: "news-and-trends", label: "News and trends", description: "Reads a recent event or shift in the field and what to do about it." },
 ];

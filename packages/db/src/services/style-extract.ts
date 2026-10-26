@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { ExtractedStyleSchema, STYLE_SCHEMA_VERSION, resolveModel, type AiClient, type ExtractedStyle, type StyleProfile } from "@brandloop/ai";
+import { ExtractedStyleSchema, StyleProfileSchema, STYLE_SCHEMA_VERSION, resolveModel, type AiClient, type ExtractedStyle, type StyleProfile } from "@brandloop/ai";
 import { measureCorpus } from "@brandloop/ai/measure";
 import { prisma } from "../client";
 import type { CorpusSource } from "../generated/prisma/client";
@@ -123,6 +123,8 @@ export async function extractOwnStyle(ai: AiClient, profileId: string, voiceStyl
       finalChecks: out.finalChecks,
       layout: measureCorpus(texts),
       referencePosts: out.referencePostIndexes.map((i, n) => ({ text: texts[i]!, postType: out.postTypes[n]!, note: "" })),
+      // Edit-learning state survives a re-extraction (suppressed rules stay suppressed, learned edits aren't re-read).
+      ...(StyleProfileSchema.safeParse(style.styleProfile).data?.learning ? { learning: StyleProfileSchema.parse(style.styleProfile).learning } : {}),
       source: { kind: "own", postCount: texts.length, corpusHash, compiledAt: new Date().toISOString(), model: resolveModel("extract") },
     };
     const { version } = await saveStyleProfile(voiceStyleId, profile, corpusHash);
@@ -133,4 +135,17 @@ export async function extractOwnStyle(ai: AiClient, profileId: string, voiceStyl
     await prisma.voiceStyle.update({ where: { id: voiceStyleId }, data: { status: "FAILED", statusDetail: detail } });
     throw err;
   }
+}
+
+/** The posts in a style's corpus, newest first, for the writer's few-shot examples. */
+export async function listCorpusPosts(
+  voiceStyleId: string,
+  limit = 50,
+): Promise<{ text: string; source: CorpusSource; postedAt: Date | null }[]> {
+  return prisma.styleCorpusPost.findMany({
+    where: { voiceStyleId },
+    orderBy: [{ postedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    take: limit,
+    select: { text: true, source: true, postedAt: true },
+  });
 }

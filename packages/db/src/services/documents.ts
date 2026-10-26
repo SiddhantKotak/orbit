@@ -376,3 +376,25 @@ export async function linkChatToDocument(
 }
 
 export type { VersionSource };
+
+/**
+ * What style learning compares: a base text and the current text. The base is the newest AI-written version, or, with
+ * `sinceVersion` (the document version already learned from), the text of that version, so only newer edits are read.
+ * Null when the post isn't the profile's, has no AI version, or nothing is newer than `sinceVersion`.
+ */
+export async function getEditPair(
+  profileId: string,
+  id: string,
+  sinceVersion?: number,
+): Promise<{ aiText: string; userText: string; currentSource: VersionSource; currentAt: Date; currentVersion: number } | null> {
+  const doc = await prisma.document.findFirst({ where: { id, profileId, deletedAt: null }, select: { version: true } });
+  if (!doc) return null;
+  if (sinceVersion !== undefined && doc.version <= sinceVersion) return null;
+  const [current, ai, since] = await Promise.all([
+    prisma.documentVersion.findUnique({ where: { documentId_version: { documentId: id, version: doc.version } } }),
+    prisma.documentVersion.findFirst({ where: { documentId: id, source: { in: ["AI_CREATE", "AI_EDIT", "PROPOSAL"] } }, orderBy: { version: "desc" } }),
+    sinceVersion === undefined ? null : prisma.documentVersion.findUnique({ where: { documentId_version: { documentId: id, version: sinceVersion } } }),
+  ]);
+  const base = since ?? ai;
+  return current && base ? { aiText: base.text, userText: current.text, currentSource: current.source, currentAt: current.createdAt, currentVersion: doc.version } : null;
+}

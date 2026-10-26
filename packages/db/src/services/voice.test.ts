@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { AiClient } from "@brandloop/ai";
 import { prisma } from "../client";
 import { seedPresets } from "../../prisma/seed";
-import { PRESET_VOICES } from "../../prisma/presets";
+import { LEGACY_PRESET_SLUGS, PRESET_VOICES } from "../../prisma/presets";
 import { ensureAccount } from "./account";
 import { createOwnVoice, getSelectedVoice, listVoices, selectVoice } from "./voice";
 
@@ -45,14 +45,38 @@ const extractedStyle = {
 const post = (n: number) => `Post ${n}. ` + "A sentence about shipping work that matters. ".repeat(6);
 
 describe("presets", () => {
-  it("seeding twice leaves exactly 9 presets, each with the four guide sections", async () => {
+  const slugs = PRESET_VOICES.map((p) => p.slug);
+
+  it("seeding twice leaves exactly the 10 current presets, each with the four guide sections", async () => {
     await seedPresets(prisma);
     await seedPresets(prisma);
-    expect(await prisma.voiceStyle.count({ where: { kind: "PRESET" } })).toBe(9);
-    expect(PRESET_VOICES).toHaveLength(9);
+    expect(PRESET_VOICES).toHaveLength(10);
+    expect(await prisma.voiceStyle.count({ where: { kind: "PRESET", slug: { in: slugs } } })).toBe(10);
     for (const p of PRESET_VOICES) {
+      expect(p.tagline, p.slug).not.toBe("");
       for (const h of ["## Rhythm", "## Structure", "## Signature moves", "## Avoid"]) expect(p.guide).toContain(h);
     }
+  });
+
+  it("leaves a selected retired preset untouched and lists it only for the profile that selected it", async () => {
+    await seedPresets(prisma);
+    const old = await prisma.voiceStyle.upsert({
+      where: { slug: LEGACY_PRESET_SLUGS[0]! },
+      update: {},
+      create: { slug: LEGACY_PRESET_SLUGS[0]!, kind: "PRESET", name: "Old preset", profileVersion: 2 },
+    });
+    const a = await account(10);
+    const b = await account(11);
+    await selectVoice(a.userId, a.profileId, old.id);
+    await seedPresets(prisma);
+    const after = await prisma.voiceStyle.findUniqueOrThrow({ where: { id: old.id } });
+    expect(after).toMatchObject({ name: old.name, profileVersion: 2 });
+    const listA = (await listVoices(a.profileId)).filter((v) => v.kind === "PRESET").map((v) => v.slug);
+    expect(listA.slice(0, 10)).toEqual(slugs);
+    expect(listA).toContain(old.slug);
+    const listB = (await listVoices(b.profileId)).map((v) => v.slug);
+    expect(listB).not.toContain(old.slug);
+    expect(listB.filter((s) => s && slugs.includes(s))).toEqual(slugs);
   });
 });
 
@@ -87,12 +111,12 @@ describe("selecting", () => {
   it("selectVoice sets Profile.voiceStyleId for a preset; getSelectedVoice reads it", async () => {
     const { userId, profileId } = await account(3);
     await seedPresets(prisma);
-    const preset = (await prisma.voiceStyle.findFirst({ where: { kind: "PRESET" } }))!;
+    const preset = (await prisma.voiceStyle.findUniqueOrThrow({ where: { slug: PRESET_VOICES[0]!.slug } }));
     await selectVoice(userId, profileId, preset.id);
     expect((await prisma.profile.findUnique({ where: { id: profileId } }))?.voiceStyleId).toBe(preset.id);
     expect((await getSelectedVoice(profileId))?.id).toBe(preset.id);
     const list = await listVoices(profileId);
-    expect(list.filter((v) => v.kind === "PRESET")).toHaveLength(9);
+    expect(list.filter((v) => v.kind === "PRESET")).toHaveLength(10);
   });
 
   it("falls back to the own style, else null; rejects another profile's own voice", async () => {

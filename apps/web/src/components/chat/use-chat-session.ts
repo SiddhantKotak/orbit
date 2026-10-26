@@ -280,13 +280,13 @@ export function useChatSession({
    * A pick from an options panel: the user's message shows the option's label; the pick (picker call and option id)
    * rides in the body and the message metadata, and the server reads the option's brief from its stored copy.
    */
-  const sendOptionPick = useCallback(async (label: string, pick: { pickerToolCallId: string; optionId: string }) => {
+  const sendOptionPick = useCallback(async (label: string, pick: { pickerToolCallId: string; optionId: string }, opts: { formatId?: string | null } = {}) => {
     lastErrorRef.current = null;
     setNotice(null);
     const ctx = docContext.current;
     await chatRef.current.sendMessage(
       { role: "user", parts: [{ type: "text", text: label }], metadata: { createdAt: new Date().toISOString(), optionPick: pick } },
-      { body: { optionPick: pick, uiAction: "option-pick", ...(ctx ? { documentContext: ctx } : {}) } },
+      { body: { optionPick: pick, uiAction: "option-pick", ...(ctx ? { documentContext: ctx } : {}), ...(opts.formatId ? { selectedFormatId: opts.formatId } : {}) } },
     );
   }, []);
 

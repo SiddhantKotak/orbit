@@ -10,10 +10,11 @@ import { knowledgeTools } from "./knowledge";
 import { memoryTools } from "./memory";
 import { optionTools } from "./options";
 import { strategyTools } from "./strategy";
+import { templateTools } from "./templates";
 import { visualTools } from "./visuals";
 
 function baseTools(ctx: TurnContext) {
-  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...analyzeTools(ctx), ...optionTools() };
+  return { ...memoryTools(ctx), ...knowledgeTools(ctx), ...strategyTools(ctx), ...delegateTools(ctx), ...documentTools(ctx), ...hookTools(ctx), ...analyzeTools(ctx), ...optionTools(), ...templateTools(ctx) };
 }
 
 /**

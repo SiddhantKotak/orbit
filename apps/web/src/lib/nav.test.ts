@@ -34,17 +34,17 @@ describe("section nav (O3: E10-E12, D7)", () => {
 
   it("Ideas follows p13 with Strategy first in Discover and Knowledge under My library", () => {
     expect(ideas.groups.map((g) => g.label)).toEqual(["Discover", "Carousels", "My library"]);
-    expect(labels(ideas.groups[0]!)).toEqual(["Strategy", "For you", "Swipe file", "Following", "Hooks"]);
+    expect(labels(ideas.groups[0]!)).toEqual(["Strategy", "For you", "Swipe file", "Following", "Templates"]);
     expect(labels(ideas.groups[1]!)).toEqual(["Created by you"]);
     expect(labels(ideas.groups[2]!)).toEqual(["All saves", "Knowledge"]);
     expect(ideas.groups[2]!.items.find((i) => i.label === "Knowledge")!.href).toBe("/knowledge-base");
     expect(sectionFor("/knowledge-base")?.id).toBe("ideas");
   });
 
-  it("the palette keyword \"templates\" still finds Hooks at /templates", () => {
-    const hooks = ideas.groups[0]!.items.find((i) => i.label === "Hooks")!;
+  it("the palette keyword \"hooks\" finds Templates at /templates", () => {
+    const hooks = ideas.groups[0]!.items.find((i) => i.label === "Templates")!;
     expect(hooks.href).toBe("/templates");
-    expect(paletteValue(hooks).split(" ")).toContain("templates");
-    expect(paletteValue(hooks)).toMatch(/^Hooks /);
+    expect(paletteValue(hooks).split(" ")).toContain("hooks");
+    expect(paletteValue(hooks)).toMatch(/^Templates /);
   });
 });

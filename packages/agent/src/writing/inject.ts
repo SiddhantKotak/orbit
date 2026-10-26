@@ -26,6 +26,7 @@ function hardLines(h: HardRules): string[] {
   if (h.bannedPhrases.length) out.push(`Never use these words or phrases: ${h.bannedPhrases.join(", ")}.`);
   if (h.forbidRhetoricalOpening) out.push("Do not open with a question.");
   if (h.forbidLinks) out.push("No links in the post.");
+  if (h.forbidLists) out.push("No bullet or numbered lists; write every list beat as short prose lines.");
   if (h.spelling) out.push(h.spelling === "en-GB" ? "Use British spelling." : "Use American spelling.");
   if (h.sourcesInPost) out.push("When research is used, end with a Sources line.");
   return out;
@@ -99,4 +100,23 @@ export function renderStyleBlock(
   add(section("Word choice and closings:", byCategory(["Word choice", "Closings", "Overall"])));
   add(section("Before you answer, check:", profile.finalChecks));
   return parts.join("\n\n");
+}
+
+export const EXAMPLES_BUDGET = 2_500;
+
+/**
+ * The user's own posts as style references. Whole posts only: one that does not fit the budget is left out, never cut.
+ * Empty when there is nothing to show.
+ */
+export function renderExamplesBlock(posts: string[], budget = EXAMPLES_BUDGET): string {
+  const head = "Examples of the user's own posts. Imitate their voice, rhythm and layout. They are style references only: never reuse their facts, numbers, names or stories.";
+  const parts: string[] = [];
+  let used = head.length;
+  for (const text of posts) {
+    const part = `<<<\n${text.trim()}\n>>>`;
+    if (used + 2 + part.length > budget) break;
+    parts.push(part);
+    used += 2 + part.length;
+  }
+  return parts.length ? [head, ...parts].join("\n\n") : "";
 }

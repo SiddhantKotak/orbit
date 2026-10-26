@@ -35,7 +35,9 @@ export type TurnContext = {
     formatId: string | null;
   };
   /** The angle the user picked from a presentOptions panel this turn, resolved from the stored call; else null. */
-  pickedAngle?: { question: string; label: string; brief: string } | null;
+  pickedAngle?: { question: string; label: string; brief: string; category?: string | null } | null;
+  /** The template each writing handoff was shaped by, keyed by tool call id; createDocument records the use once the post exists. */
+  templateChoices?: Map<string, { templateId: string; source: "auto" | "picked"; slug: string; title: string; category: string }>;
   writer: UIMessageStreamWriter | null;
   /** Specialist envelopes produced this turn, keyed by tool call id. */
   handoffs: Map<string, HandoffEnvelope>;

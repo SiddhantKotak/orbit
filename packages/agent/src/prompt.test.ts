@@ -22,7 +22,7 @@ describe("buildSystemPrompt", () => {
     expect(STATIC_PREFIX).toContain("Angles first");
     expect(STATIC_PREFIX).toContain("presentOptions");
     expect(STATIC_PREFIX).toContain("Here's your first draft. What would you like to improve?");
-    const s = buildSystemPrompt(input({ pickedAngle: { question: "Which angle?", label: "The myth", brief: "Argue the myth." } }));
+    const s = buildSystemPrompt(input({ pickedAngle: { question: "Which angle?", label: "The myth", brief: "Argue the myth.", category: null } }));
     expect(s).toContain("<picked_angle>");
     expect(s).toContain("Argue the myth.");
     expect(buildSystemPrompt(input())).not.toContain("The user picked:");

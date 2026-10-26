@@ -77,7 +77,7 @@ export const sections: Section[] = [
           { label: "For you", href: "/ideas", icon: Sparkles },
           { label: "Swipe file", href: "/inspiration", icon: Telescope, keywords: ["inspiration"] },
           { label: "Following", href: "/following", icon: UserPlus },
-          { label: "Hooks", href: "/templates", icon: LayoutTemplate, keywords: ["templates"] },
+          { label: "Templates", href: "/templates", icon: LayoutTemplate, keywords: ["hooks"] },
         ],
       },
       { label: "Carousels", items: [{ label: "Created by you", href: "/images", icon: Image, keywords: ["images"] }] },

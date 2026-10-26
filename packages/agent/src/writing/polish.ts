@@ -32,7 +32,7 @@ export const REPAIR_MIN_MS = 20_000;
 
 /** Rules a model repair is for: the ones code cannot fix. Character-level rules go to the last resort instead. */
 const CODE_FIXED: ReadonlySet<LintId> = new Set(["emoji", "dashes", "hashtags", "postscript", "list-adjacency", "markdown"]);
-const REPAIR_TARGETS: ReadonlySet<LintId> = new Set(["block-lines", "one-line-blocks"]);
+const REPAIR_TARGETS: ReadonlySet<LintId> = new Set(["block-lines", "one-line-blocks", "not-just", "triad", "filler", "overused", "uniform-rhythm"]);
 const needsModel = (v: Violation) => !CODE_FIXED.has(v.id) && (v.level === "hard" || REPAIR_TARGETS.has(v.id));
 
 const countOf = (vs: Violation[]) => vs.filter((v) => v.level !== "advice");

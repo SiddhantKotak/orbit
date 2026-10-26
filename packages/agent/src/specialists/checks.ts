@@ -10,7 +10,7 @@ export { bannedMatches, bannedWordsFromRules };
 
 export const CHECK_IDS = ["length", "hook-length", "hashtags", "banned-words", "placeholders", "markdown", "links", "emoji"] as const;
 /** Ids the writing checks add (Task W2); the ones already in CHECK_IDS (emoji, hashtags, links, hook-length) are merged into those results. */
-export const WRITING_CHECK_IDS = ["dashes", "postscript", "rhetorical-opening", "block-lines", "list-adjacency", "number-provenance", "date-provenance", "first-person"] as const;
+export const WRITING_CHECK_IDS = ["dashes", "postscript", "rhetorical-opening", "block-lines", "list-adjacency", "number-provenance", "date-provenance", "first-person", "ai-tells"] as const;
 export type CheckId = (typeof CHECK_IDS)[number] | (typeof WRITING_CHECK_IDS)[number];
 export type CheckResult = { id: CheckId; passed: boolean; detail: string };
 
@@ -70,6 +70,7 @@ export function runWritingChecks(text: string, rules: EffectiveRules, ctx: LintC
   if (h.forbidHashtags) enforced.push("hashtags");
   if (h.forbidPostscript) enforced.push("postscript");
   if (h.forbidLinks) enforced.push("links");
+  if (h.forbidLists) enforced.push("lists");
   if (h.forbidRhetoricalOpening) enforced.push("rhetorical-opening");
   if (h.maxBlockLines !== null) enforced.push("block-lines");
   if (ctx.groundingText !== null) enforced.push("number-provenance");
@@ -92,6 +93,7 @@ const WRITING_PASS: Partial<Record<LintId, string>> = {
   hashtags: "No hashtags",
   postscript: "No P.S.",
   links: "No links",
+  lists: "No lists",
   "rhetorical-opening": "No rhetorical opening",
   "block-lines": "Blocks fit your line limit",
   "number-provenance": "Every number comes from your material",

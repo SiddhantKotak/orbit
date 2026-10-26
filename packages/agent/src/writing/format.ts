@@ -4,11 +4,10 @@
  * blocks, a short post is tight lines), and the style's list share breaks ties.
  */
 import type { PostType, StyleProfile } from "@brandloop/ai/style";
-import { FRAMEWORKS, TEMPLATES, type BlockPlan } from "../library";
+import type { TemplateRow } from "@brandloop/db";
+import { FRAMEWORKS, type BlockPlan } from "../library";
 
-export const FORMAT_IDS: ReadonlySet<string> = new Set([...FRAMEWORKS.map((f) => f.id), ...TEMPLATES.map((t) => t.id)]);
-
-export type Format = { id: string | null; plan: BlockPlan; source: "picked" | "post-type" | "style" | "default"; skeleton: string | null; name: string | null };
+export type Format = { id: string | null; plan: BlockPlan; source: "picked" | "auto" | "post-type" | "style" | "default"; skeleton: string | null; name: string | null };
 
 const prose = (lines: [number, number], note: string) => ({ kind: "prose" as const, lines, note });
 const hook = { kind: "hook" as const, lines: [1, 1] as [number, number], note: "The opening line" };
@@ -36,7 +35,7 @@ function planFor(type: PostType | null, listKind: "bullets" | "numbered"): Block
 }
 
 /** A template's skeleton read as a plan: blank-line blocks, "1." lines are numbered, "-" lines are bullets. */
-function planFromSkeleton(skeleton: string): BlockPlan {
+export function planFromSkeleton(skeleton: string): BlockPlan {
   return skeleton.split(/\n\s*\n/).map((block, i) => {
     const lines = block.split("\n").filter((l) => l.trim());
     const numbered = lines.filter((l) => /^\d+\./.test(l.trim())).length >= 2;
@@ -45,14 +44,18 @@ function planFromSkeleton(skeleton: string): BlockPlan {
   });
 }
 
-export function selectFormat(input: { selectedFormatId: string | null; postType: PostType | null; style: StyleProfile | null; request: string }): Format {
+/**
+ * `template` is the row the caller resolved (the user's pinned slug, or an auto-pick). A pinned id that is neither a
+ * framework nor a resolved template is ignored and the turn falls through to the post-type plan.
+ */
+export function selectFormat(input: { selectedFormatId: string | null; postType: PostType | null; style: StyleProfile | null; request: string; template: TemplateRow | null }): Format {
   const picked = input.selectedFormatId;
   if (picked) {
     const fw = FRAMEWORKS.find((f) => f.id === picked);
     if (fw) return { id: fw.id, plan: fw.plan, source: "picked", skeleton: null, name: fw.name };
-    const t = TEMPLATES.find((x) => x.id === picked);
-    if (t) return { id: t.id, plan: planFromSkeleton(t.skeleton), source: "picked", skeleton: t.skeleton, name: t.title };
   }
+  const t = input.template;
+  if (t) return { id: t.slug, plan: planFromSkeleton(t.skeleton), source: picked === t.slug ? "picked" : "auto", skeleton: t.skeleton, name: t.title };
   const l = input.style?.layout.listPosts;
   const listKind = l && l.numbered > l.bullet ? "numbered" : "bullets";
   if (input.postType) return { id: null, plan: planFor(input.postType, listKind), source: "post-type", skeleton: null, name: null };

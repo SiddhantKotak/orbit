@@ -8,6 +8,7 @@ import { CheckIcon, CopyIcon } from "@brandloop/ui/icons";
 import { AssistantAvatar } from "./assistant-avatar";
 import { hasVisibleParts, MessageParts, replyText } from "./message-parts";
 import { messageKeys, waitingKey } from "./reply-keys";
+import { SwapProvider, usedTemplates } from "@/components/templates/swap";
 
 type Status = "submitted" | "streaming" | "ready" | "error";
 
@@ -121,6 +122,7 @@ export function MessageList({
   onRetry,
   notice,
   followUps,
+  onSwapTemplate,
 }: {
   messages: ChatUIMessage[];
   status: Status;
@@ -132,6 +134,8 @@ export function MessageList({
   notice?: { text: string; reload?: boolean } | null;
   /** Follow-up chips under the newest finished reply (the post's quick links). */
   followUps?: ReactNode;
+  /** Swap on a draft card: re-apply another template to the open post. Absent: the card only names the template. */
+  onSwapTemplate?: (t: { slug: string; title: string }) => void;
 }) {
   const shown = messages.filter((m) => !m.metadata?.hideInUI);
   // Live and waiting read the full list: a hidden quick-link message still starts a turn.
@@ -142,7 +146,10 @@ export function MessageList({
   const lastShown = shown.at(-1);
   // The thinking row and the reply that follows it share a key, so the row turns into the reply in place.
   const keys = useMemo(() => messageKeys(messages), [messages]);
+  const used = useMemo(() => usedTemplates(messages), [messages]);
+  const swap = useMemo(() => ({ used, onSwap: onSwapTemplate, disabled: busy }), [used, onSwapTemplate, busy]);
   return (
+    <SwapProvider value={swap}>
     <ol className="flex flex-col gap-7" aria-label="Messages">
       {/* One array, so the thinking row and its reply (same key) are reconciled as one element. */}
       {[
@@ -201,5 +208,6 @@ export function MessageList({
         </li>
       )}
     </ol>
+    </SwapProvider>
   );
 }

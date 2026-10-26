@@ -1,10 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Dialog } from "radix-ui";
 import { Button } from "@brandloop/ui";
 import { dialogActionsClass, dialogContentClass, dialogDescriptionClass, dialogOverlayClass, dialogTitleClass } from "@/components/dialog-classes";
 import type { StyleSummary } from "@/lib/style-summary";
+
+type Version = { version: number; createdAt: string };
+
+/** An own style's kept versions (newest first). Automatic learning from edits writes one per change; Revert saves an older one again. */
+function StyleHistory({ styleId }: { styleId: string }) {
+  const [versions, setVersions] = useState<Version[] | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/voice/${encodeURIComponent(styleId)}/versions`).catch(() => null);
+    if (res?.ok) setVersions(((await res.json()) as { versions: Version[] }).versions);
+  }, [styleId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  async function revert(version: number) {
+    setBusy(version);
+    setError(null);
+    const res = await fetch(`/api/voice/${encodeURIComponent(styleId)}/versions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ version }),
+    }).catch(() => null);
+    if (!res?.ok) setError("Couldn't revert this version");
+    await load();
+    setBusy(null);
+  }
+  if (!versions || versions.length < 2) return null;
+  return (
+    <section data-style-history aria-label="History" className="flex flex-col gap-2">
+      <h3 className="text-[13px] font-medium text-text">History</h3>
+      <p className="text-xs text-text-3">Your style also adapts when you edit drafts. Each change is saved here.</p>
+      <ul className="flex flex-col gap-1">
+        {versions.map((v, i) => (
+          <li key={v.version} data-style-version={v.version} className="flex items-center justify-between gap-3 text-[13px] text-text-2">
+            <span>
+              Version {v.version} · {new Date(v.createdAt).toLocaleString()}
+              {i === 0 ? " · current" : ""}
+            </span>
+            {i > 0 && (
+              <Button type="button" variant="ghost" disabled={busy !== null} onClick={() => void revert(v.version)}>
+                Revert
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <p role="alert" className="text-[13px] text-danger">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
 
 type Result = { id: string; style: StyleSummary } | { id: string; error: string };
 
@@ -69,6 +124,7 @@ export function StyleDetailsSheet({ styleId, onClose }: { styleId: string | null
               ) : (
                 <p className="text-[14px] text-text-2">This style was saved as a short description, without measured layout.</p>
               )}
+              {style.own && <StyleHistory styleId={style.id} />}
             </div>
           )}
           <div className={dialogActionsClass}>

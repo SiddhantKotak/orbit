@@ -3,14 +3,14 @@
  * Hard violations must be fixed (the polish pass does it, Task W6); target ones are fixed if cheap and reported; advice is
  * only reported. Pure: no database, no model.
  */
-import { bannedMatches, MARKDOWN, PLACEHOLDER } from "./patterns";
+import { aiTells, bannedMatches, MARKDOWN, PLACEHOLDER } from "./patterns";
 import { extractNumbers, isListLine, measurePost, splitBlocks, type PostMetrics } from "./measure";
 import type { EffectiveRules, PostType } from "./rules";
 
 export type LintId =
   | "emoji" | "dashes" | "hashtags" | "postscript" | "links" | "banned-phrase" | "rhetorical-opening"
-  | "block-lines" | "hook-length" | "fold" | "one-line-blocks" | "list-adjacency" | "post-length" | "list-expected"
-  | "number-provenance" | "date-provenance" | "first-person" | "placeholders" | "markdown";
+  | "block-lines" | "hook-length" | "fold" | "one-line-blocks" | "list-adjacency" | "post-length" | "list-expected" | "lists"
+  | "not-just" | "triad" | "filler" | "overused" | "uniform-rhythm" | "number-provenance" | "date-provenance" | "first-person" | "placeholders" | "markdown";
 
 export type Violation = { id: LintId; level: "hard" | "target" | "advice"; detail: string; block: number | null };
 
@@ -101,10 +101,14 @@ export function lintPost(text: string, rules: EffectiveRules, ctx: LintContext):
   if (m.chars > MAX_LENGTH) add("post-length", "hard", `${m.chars.toLocaleString("en-US")} characters (limit 3,000)`);
   else if (m.chars > 0 && (m.chars < targets.postChars.low * 0.85 || m.chars > targets.postChars.high * 1.15))
     add("post-length", "target", `${m.chars} characters; this style runs ${targets.postChars.low}-${targets.postChars.high}`);
-  if (m.bulletLists + m.numberedLists === 0) {
+  if (hard.forbidLists && m.bulletLists + m.numberedLists > 0) add("lists", "hard", "A list, but your rules forbid lists");
+  if (m.bulletLists + m.numberedLists === 0 && !hard.forbidLists) {
     if (ctx.expectList) add("list-expected", "target", "The chosen format has a list, and the post has none");
     else if (ctx.postType === "framework" || ctx.postType === "how-to") add("list-expected", "advice", "A framework or how-to post reads best with a list");
   }
+
+  // AI tells: target only, so the repair pass fixes them but they never block saving. Dashes stay a hard-rule check above.
+  for (const t of aiTells(text)) add(t.id, "target", t.detail);
 
   // Provenance.
   if (ctx.groundingText !== null) {

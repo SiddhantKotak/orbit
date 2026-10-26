@@ -7,7 +7,7 @@ export * from "./categories";
 export * from "./templates";
 
 /** A small deterministic hash so the same seed always picks the same purposes. */
-function hash(s: string): number {
+export function hash(s: string): number {
   let h = 2166136261;
   for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
   return h;

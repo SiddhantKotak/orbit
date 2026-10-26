@@ -102,9 +102,9 @@ function systemText(prompt: Prompt): string {
 function scriptedAngles(topic: string, forOpenPost: boolean) {
   const subject = topic.trim() || "this";
   const options = [
-    { id: "myth", label: `The biggest myth about ${subject}`, explainer: "A contrarian opener earns attention and invites debate.", brief: `Argue that the most common belief about ${subject} is wrong. Open with the myth, then show what is true instead. Plain words, no invented personal facts.` },
-    { id: "practical", label: `A practical way to use ${subject} this week`, explainer: "Concrete steps are the most saved and shared kind of post.", brief: `Give three concrete steps a reader can take with ${subject} this week. One short block per step. No invented numbers or stories.` },
-    { id: "mistake", label: `The mistake teams make with ${subject}`, explainer: "Naming a costly mistake makes the lesson stick.", brief: `Describe the most common mistake with ${subject}, why it happens and the fix. Keep it general: no personal anecdotes unless the user gave one.` },
+    { id: "myth", category: "opinion", label: `The biggest myth about ${subject}`, explainer: "A contrarian opener earns attention and invites debate.", brief: `Argue that the most common belief about ${subject} is wrong. Open with the myth, then show what is true instead. Plain words, no invented personal facts.` },
+    { id: "practical", category: "educational", label: `A practical way to use ${subject} this week`, explainer: "Concrete steps are the most saved and shared kind of post.", brief: `Give three concrete steps a reader can take with ${subject} this week. One short block per step. No invented numbers or stories.` },
+    { id: "mistake", category: "lesson", label: `The mistake teams make with ${subject}`, explainer: "Naming a costly mistake makes the lesson stick.", brief: `Describe the most common mistake with ${subject}, why it happens and the fix. Keep it general: no personal anecdotes unless the user gave one.` },
   ];
   return {
     preamble: forOpenPost ? "Here are other ways to take this post." : `${subject} can support several strong posts, so the central claim will shape everything that follows.`,
@@ -182,7 +182,7 @@ function route(opts: CallOptions): ScriptStep {
   const last = results.at(-1);
   if (last) {
     if (last.toolName === "researchTopic" && /\b(draft|write)\b/i.test(text)) {
-      return call("delegateWriting", { request: `Write a short LinkedIn post for the user from the research. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: null, overrides: null, chosenHook: null });
+      return call("delegateWriting", { request: `Write a short LinkedIn post for the user from the research. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: null, overrides: null, chosenHook: null, templateSlug: null });
     }
     if (last.toolName === "createDocument" && systemText(opts.prompt).includes("<picked_angle>\nQuestion asked:")) {
       return { text: "Here's your first draft. What would you like to improve?" };
@@ -199,7 +199,7 @@ function route(opts: CallOptions): ScriptStep {
   const openLine = openDocumentFirstLine(opts.prompt);
   if (angle && has.has("delegateWriting") && !openLine) {
     const brief = /Writing brief for this angle:\n([\s\S]*?)\n<\/picked_angle>/.exec(systemText(opts.prompt))?.[1] ?? text;
-    return call("delegateWriting", { request: `Write a short LinkedIn post for the user. Follow this brief: ${brief}`.slice(0, 4_000), specialty: "post", personalDetails: "none", overrides: null, chosenHook: null });
+    return call("delegateWriting", { request: `Write a short LinkedIn post for the user. Follow this brief: ${brief}`.slice(0, 4_000), specialty: "post", personalDetails: "none", overrides: null, chosenHook: null, templateSlug: null });
   }
   if (angle && openLine) {
     return call("updateDocument", { description: text.slice(0, 2_000), editRequirements: ["Take the picked angle"], editScope: "whole-document", restoreVersion: null });
@@ -232,6 +232,9 @@ function route(opts: CallOptions): ScriptStep {
   if (firstLine && /\bpunchier\b/i.test(text)) {
     return call("proposeDocumentEdits", { instruction: text.slice(0, 1_000), targetText: firstLine });
   }
+  if (firstLine && /\brestructure this post\b/i.test(text)) {
+    return call("updateDocument", { description: text.slice(0, 2_000), editRequirements: ["Follow the chosen template"], editScope: "whole-document", restoreVersion: null });
+  }
   if (firstLine && /\bshorter\b/i.test(text)) {
     return call("updateDocument", {
       description: text.slice(0, 2_000),
@@ -253,6 +256,7 @@ function route(opts: CallOptions): ScriptStep {
       personalDetails: null,
       overrides: null,
       chosenHook: { text: picked, spine: null },
+      templateSlug: null,
     });
   }
   if (/\bhook (variations?|options?)\b|\bopening lines\b/i.test(text)) {
@@ -265,6 +269,7 @@ function route(opts: CallOptions): ScriptStep {
       personalDetails: /\b(without|skip|no) personal (details|anecdotes)\b/i.test(text) ? "none" : null,
       overrides: null,
       chosenHook: null,
+      templateSlug: null,
     });
   }
   if (/\bmarkdown\b/i.test(text)) return { text: MARKDOWN_REPLY, ...(/\bslowly\b/i.test(text) && { chunkDelayMs: SLOW_CHUNK_MS }) };
@@ -564,6 +569,14 @@ export function scriptedAi(): AiClient {
       return "Mock chat";
     },
     async json({ schema, prompt }) {
+      // Edit-learning (writing/learn-edits.ts): keep the current rules and add one fixed habit, so offline runs make a version.
+      const current = /<current_rules>\n([\s\S]*?)\n<\/current_rules>/.exec(prompt)?.[1];
+      if (current) {
+        const rules = JSON.parse(current) as { global: { do: string[] } };
+        const habit = "Keep paragraphs short.";
+        if (!rules.global.do.includes(habit)) rules.global.do = [...rules.global.do, habit].slice(-7);
+        return schema.parse({ rules });
+      }
       const normalized = mockNormalized(prompt);
       if (normalized) {
         const parsed = schema.safeParse(normalized);

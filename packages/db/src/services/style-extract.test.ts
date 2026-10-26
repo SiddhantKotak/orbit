@@ -133,6 +133,19 @@ describe("extractOwnStyle", () => {
     expect(third.calls.n).toBe(1);
   });
 
+  it("a re-extraction carries over the edit-learning state", async () => {
+    const { profileId } = await account(7);
+    const { voiceStyleId } = await prepareOwnStyle(profileId, posts, "PASTE");
+    await extractOwnStyle(fakeAi([extracted()]).ai, profileId, voiceStyleId);
+    const row = await prisma.voiceStyle.findUniqueOrThrow({ where: { id: voiceStyleId } });
+    const learning = { suppressed: ["End on a question."], lastLearnedVersion: { doc1: 3 } };
+    await prisma.voiceStyle.update({ where: { id: voiceStyleId }, data: { styleProfile: { ...(row.styleProfile as object), learning } } });
+    await prepareOwnStyle(profileId, [...posts, post(6)], "PASTE");
+    await extractOwnStyle(fakeAi([extracted()]).ai, profileId, voiceStyleId);
+    const after = await prisma.voiceStyle.findUniqueOrThrow({ where: { id: voiceStyleId } });
+    expect((after.styleProfile as { learning?: unknown }).learning).toEqual(learning);
+  });
+
   it("never reads another profile's corpus", async () => {
     const a = await account(7);
     const b = await account(8);

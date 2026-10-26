@@ -1,18 +1,28 @@
 import type { AiClient } from "@brandloop/ai";
 import { prisma } from "../client";
 import type { VoiceStyle } from "../generated/prisma/client";
+import { LEGACY_PRESET_SLUGS, PRESET_VOICES } from "../../prisma/presets";
 import { AccountError, assertProfileAccess } from "./account";
 import { extractOwnStyle, prepareOwnStyle, STYLE_POSTS_ERROR, validateStylePosts } from "./style-extract";
 
 export const VOICE_POSTS_ERROR = STYLE_POSTS_ERROR;
 
-/** The profile's own style first, then presets in name order. */
+/**
+ * The profile's own style first, then the current presets in their defined order. A retired preset is listed only for
+ * a profile that still has it selected (after the current presets).
+ */
 export async function listVoices(profileId: string): Promise<VoiceStyle[]> {
-  const rows = await prisma.voiceStyle.findMany({
-    where: { OR: [{ kind: "PRESET" }, { profileId }] },
-    orderBy: { name: "asc" },
-  });
-  return [...rows.filter((v) => v.profileId === profileId), ...rows.filter((v) => v.profileId !== profileId)];
+  const [rows, profile] = await Promise.all([
+    prisma.voiceStyle.findMany({ where: { OR: [{ kind: "PRESET" }, { profileId }] }, orderBy: { name: "asc" } }),
+    prisma.profile.findUnique({ where: { id: profileId }, select: { voiceStyleId: true } }),
+  ]);
+  const legacy = new Set(LEGACY_PRESET_SLUGS);
+  const order = new Map(PRESET_VOICES.map((p, i) => [p.slug, i]));
+  const visible = rows.filter((v) => !(v.slug && legacy.has(v.slug)) || v.id === profile?.voiceStyleId);
+  const presets = visible
+    .filter((v) => v.profileId !== profileId)
+    .sort((a, b) => (order.get(a.slug ?? "") ?? 99) - (order.get(b.slug ?? "") ?? 99));
+  return [...visible.filter((v) => v.profileId === profileId), ...presets];
 }
 
 export async function selectVoice(userId: string, profileId: string, voiceStyleId: string): Promise<void> {

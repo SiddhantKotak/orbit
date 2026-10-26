@@ -1,24 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORIES, FRAMEWORKS, gatePurposes, HOOK_PURPOSES, HOOK_PURPOSE_IDS, pickPurposes, TEMPLATES, type HookPurpose } from "./index";
+import { CATEGORIES, FRAMEWORKS, gatePurposes, HOOK_PURPOSES, HOOK_PURPOSE_IDS, pickPurposes, type HookPurpose } from "./index";
 
 const ALL = new Set<HookPurpose>(HOOK_PURPOSE_IDS);
 const DENY = ["justin welsh", "jasmin alic", "george blackman", "lara acosta", "dan koe", "alex hormozi", "sahil bloom", "kleo", "linkedin influencer"];
 
 describe("library", () => {
-  it("ships 12 purposes, 6 frameworks, 15 categories, 24 templates with no creator names", () => {
+  it("ships 12 purposes, 6 frameworks, 19 categories with no creator names", () => {
     expect(HOOK_PURPOSES).toHaveLength(12);
     expect(FRAMEWORKS).toHaveLength(6);
-    expect(CATEGORIES).toHaveLength(15);
-    expect(TEMPLATES).toHaveLength(24);
-    const all = JSON.stringify([HOOK_PURPOSES, FRAMEWORKS, CATEGORIES, TEMPLATES]).toLowerCase();
+    expect(CATEGORIES).toHaveLength(19);
+    const all = JSON.stringify([HOOK_PURPOSES, FRAMEWORKS, CATEGORIES]).toLowerCase();
     for (const name of DENY) expect(all).not.toContain(name);
     expect(new Set(HOOK_PURPOSES.map((p) => p.id)).size).toBe(12);
-    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(24);
   });
 
-  it("every template belongs to a category and every purpose has two examples and a label", () => {
-    const cats = new Set(CATEGORIES.map((c) => c.id));
-    for (const t of TEMPLATES) expect(cats.has(t.category), t.id).toBe(true);
+  it("every purpose has two examples and a label", () => {
     for (const p of HOOK_PURPOSES) expect(p.examples.every((e) => e.includes("["))).toBe(true);
     for (const f of FRAMEWORKS) expect(f.plan[0]!.kind).toBe("hook");
   });

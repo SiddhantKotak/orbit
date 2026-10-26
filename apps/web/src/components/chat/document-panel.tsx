@@ -13,6 +13,7 @@ import { CharMeter, DocumentEditor } from "./document-editor";
 import { LayoutReadout } from "./layout-readout";
 import type { DocumentController } from "./use-document";
 import { useThreadPlace } from "./thread-context";
+import { TemplateLine } from "@/components/templates/swap";
 import { VersionList } from "./version-list";
 
 export const DESKTOP_PANEL = "(min-width: 1024px)";
@@ -463,6 +464,7 @@ export function DraftCard({ fallback }: { fallback: PanelDoc }) {
           ))}
           {folded && <p className="text-text-3">…more</p>}
         </div>
+        <TemplateLine docId={doc.id} />
         {ctl && !place?.inPostEditor && (
           <div className="flex flex-wrap gap-2">
             <Button variant="inverse" size="sm" onClick={ctl.open}>
