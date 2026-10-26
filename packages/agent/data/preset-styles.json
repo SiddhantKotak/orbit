@@ -120,8 +120,8 @@
           "high": 16
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 15,
+          "numbered": 10
         },
         "emoji": {
           "perPost": 0,
@@ -285,8 +285,8 @@
           "high": 24
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 5,
+          "numbered": 0
         },
         "emoji": {
           "perPost": 0.2,
@@ -450,8 +450,8 @@
           "high": 26
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 30,
+          "numbered": 40
         },
         "emoji": {
           "perPost": 0,
@@ -616,8 +616,8 @@
           "high": 20
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 15,
+          "numbered": 10
         },
         "emoji": {
           "perPost": 0,
@@ -781,8 +781,8 @@
           "high": 18
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 25,
+          "numbered": 20
         },
         "emoji": {
           "perPost": 0.1,
@@ -946,8 +946,8 @@
           "high": 24
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 20,
+          "numbered": 30
         },
         "emoji": {
           "perPost": 0,
@@ -1112,8 +1112,8 @@
           "high": 8
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 10,
+          "numbered": 5
         },
         "emoji": {
           "perPost": 0,
@@ -1277,8 +1277,8 @@
           "high": 20
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 30,
+          "numbered": 25
         },
         "emoji": {
           "perPost": 0.1,
@@ -1442,8 +1442,8 @@
           "high": 20
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 60,
+          "numbered": 30
         },
         "emoji": {
           "perPost": 0,
@@ -1607,8 +1607,8 @@
           "high": 24
         },
         "listPosts": {
-          "bullet": 0.2,
-          "numbered": 0.15
+          "bullet": 10,
+          "numbered": 5
         },
         "emoji": {
           "perPost": 0,
