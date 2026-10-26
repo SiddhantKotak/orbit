@@ -48,6 +48,8 @@ export type TurnContext = {
   documentRef: { current: OpenDocument | null };
   /** Image tools are offered only when the app wires this in (VISUALS_ENABLED). */
   visuals?: VisualsToolDeps | null;
+  /** Moderation for text a tool is about to save as the post. Returns the refusal message when it is flagged, else null. */
+  screenText?: ((text: string) => Promise<string | null>) | undefined;
   now: () => Date;
   /** Dated research (Task W9): the provider, the newest brief of this turn, how many calls were made, and whether the first step must research. */
   research: { provider: ResearchProvider | null; brief: ResearchBrief | null; calls: number; required: boolean };
