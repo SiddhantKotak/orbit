@@ -1,6 +1,6 @@
 "use client";
 
-import { AUDIENCE_LEVELS, normalizePercents } from "@brandloop/ai";
+import { AUDIENCE_LEVELS, normalizePercents } from "@brandloop/ai/constants";
 import { EditableText, NumberField, Section, useStrategy } from "./edit";
 
 export function AudienceBalance() {

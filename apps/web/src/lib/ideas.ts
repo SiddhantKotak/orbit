@@ -1,4 +1,4 @@
-import { CONTENT_TYPES, ContentTypeSchema, FORMATS, FormatSchema, type Strategy } from "@brandloop/ai";
+import { CONTENT_TYPES, ContentTypeSchema, FORMATS, FormatSchema, type Strategy } from "@brandloop/ai/schemas";
 import { z } from "zod";
 import { PROMPT_PARAM_MAX, promptHref } from "@/lib/prompt-param";
 

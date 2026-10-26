@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { toast } from "sonner";
-import { CONTENT_TYPES, FORMATS } from "@brandloop/ai";
+import { CONTENT_TYPES, FORMATS } from "@brandloop/ai/constants";
 import { Button, Segmented, StatusPill, cn } from "@brandloop/ui";
 import { CheckIcon, CopyIcon } from "@brandloop/ui/icons";
 import { ideaDraftHref, parseCachedIdeas, previousFrom, type IdeasBasis, type IdeasResponse, type Idea } from "@/lib/ideas";

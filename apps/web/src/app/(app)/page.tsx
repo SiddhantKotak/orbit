@@ -5,7 +5,7 @@ import { greetingFor } from "@/lib/greeting";
 import { promptParam } from "@/lib/prompt-param";
 import { latestChatOf, summarizeStrategy } from "@/lib/home-summary";
 import { ownTemplateBySlug } from "@/lib/templates-api";
-import { getSelectedVoice, getStrategy, listChats, listVoices } from "@brandloop/db";
+import { getSelectedVoice, getLatestChat, getStrategy, listVoices } from "@brandloop/db";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await searchParams;
@@ -16,13 +16,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const now = new Date();
   const slug = params.template;
   const template = profile && typeof slug === "string" ? await ownTemplateBySlug(profile.id, slug) : null;
-  const [voices, selected, strategy, history] = profile
-    ? await Promise.all([listVoices(profile.id), getSelectedVoice(profile.id), getStrategy(profile.id), listChats(profile.id, { limit: 20 })])
-    : [[], null, null, { chats: [] }];
+  const [voices, selected, strategy, latest] = profile
+    ? await Promise.all([listVoices(profile.id), getSelectedVoice(profile.id), getStrategy(profile.id), getLatestChat(profile.id)])
+    : [[], null, null, null];
   return (
     <HomeChat
       greeting={greetingFor(now, timeZone)}
-      cards={<HomeCards strategy={summarizeStrategy(strategy, now, timeZone)} latestChat={latestChatOf(history.chats)} now={now} />}
+      cards={<HomeCards strategy={summarizeStrategy(strategy, now, timeZone)} latestChat={latestChatOf(latest ? [latest] : [])} now={now} />}
       voices={voices.map((v) => ({ id: v.id, name: v.name, tagline: v.tagline, own: v.kind === "OWN" }))}
       selectedVoiceId={selected?.id ?? null}
       initialText={initialText}

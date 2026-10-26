@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/shell/intent-link";
 import { usePathname } from "next/navigation";
 import { SearchIcon, SidebarIcon } from "@brandloop/ui/icons";
 import { ThemeSwitch } from "@/components/theme/theme-switch";

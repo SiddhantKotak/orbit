@@ -2,19 +2,22 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { Dialog } from "radix-ui";
 import { SWRConfig, type SWRConfiguration } from "swr";
 import { CloseIcon } from "@brandloop/ui/icons";
 import { Grain, cn, useMediaQuery } from "@brandloop/ui";
-import { SmoothScroll } from "@brandloop/ui/scroll";
+import { DeferredSmoothScroll } from "@brandloop/ui/scroll";
 import type { ShellAccount } from "@/lib/account";
 import { sectionFor } from "@/lib/nav";
 import { AccountProvider } from "./account-context";
-import { CommandPalette } from "./command-palette";
 import { MobileHeader } from "./mobile-header";
 import { MobileTabbar } from "./mobile-tabbar";
 import { RouteFocus } from "./route-focus";
 import { MainSidebar, Rail, SPRINT, SectionPanel } from "./sidebar";
+
+// cmdk and the palette's actions load the first time it is opened (Cmd+K or a search button), not with every page.
+const CommandPalette = dynamic(() => import("./command-palette").then((m) => m.CommandPalette), { ssr: false });
 
 const COLLAPSED_KEY = "brandloop:sidebar-collapsed";
 
@@ -86,6 +89,8 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
   const collapsed = collapsedPref || tablet;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteUsed, setPaletteUsed] = useState(false);
+  if (paletteOpen && !paletteUsed) setPaletteUsed(true);
   const closeDrawer = () => setDrawerOpen(false);
 
   const toggleCollapsed = useCallback(() => writeCollapsed(!readCollapsed()), []);
@@ -150,7 +155,7 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
         <main className="relative flex min-w-0 flex-1 flex-col">
           <MobileHeader sprint={SPRINT} onSearch={openSearch} onMenu={() => setDrawerOpen(true)} />
           <div data-sheet="" className="relative flex min-h-0 flex-1 flex-col">
-            <SmoothScroll className="min-h-0 flex-1 overflow-y-auto">{children}</SmoothScroll>
+            <DeferredSmoothScroll className="min-h-0 flex-1 overflow-y-auto">{children}</DeferredSmoothScroll>
           </div>
           <MobileTabbar pathname={pathname} />
           <RouteFocus />
@@ -186,7 +191,7 @@ export function AppShell({ account, children }: { account: ShellAccount; childre
         </Dialog.Portal>
       </Dialog.Root>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      {paletteUsed && <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />}
       </SWRConfig>
     </AccountProvider>
   );

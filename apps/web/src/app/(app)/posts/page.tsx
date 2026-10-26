@@ -2,7 +2,7 @@ import { listCarousels, listPosts } from "@brandloop/db";
 import { getAccount } from "@/lib/account";
 import { EmptyState, PageBody, PageHeader } from "@/components/page";
 import { PostsScreen } from "@/components/posts/posts-screen";
-import { clipText, safeTimeZone, type PostRow } from "@/components/posts/posts-view";
+import { CLIENT_TEXT_MAX, clipText, safeTimeZone, type PostRow } from "@/components/posts/posts-view";
 
 export const metadata = { title: "Posts" };
 
@@ -19,7 +19,7 @@ export default async function Page() {
       </>
     );
   }
-  const [{ posts, total }, carousels] = await Promise.all([listPosts(profile.id), listCarousels(profile.id)]);
+  const [{ posts, total }, carousels] = await Promise.all([listPosts(profile.id, { textMax: CLIENT_TEXT_MAX }), listCarousels(profile.id)]);
   const rows: PostRow[] = [
     ...posts.map((p) => ({
       id: p.id,

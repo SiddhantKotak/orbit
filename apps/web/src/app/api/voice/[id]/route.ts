@@ -1,6 +1,7 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { deleteOwnStyle, getStyleProfile } from "@brandloop/db";
-import { getAccount } from "@/lib/account";
+import { ACCOUNT_CACHE_TAG, getAccount } from "@/lib/account";
 import { layoutLine, pickReferencePost, type StyleSummary } from "@/lib/style-summary";
 
 /** A writing style with its measured layout: a preset, or the current profile's own style. Anything else is a 404. */
@@ -36,5 +37,7 @@ export async function DELETE(_request: Request, ctx: { params: Promise<{ id: str
   } catch {
     return NextResponse.json({ error: "Writing style not found" }, { status: 404 });
   }
+  // Deleting the selected style clears Profile.voiceStyleId, which the cached account carries.
+  revalidateTag(ACCOUNT_CACHE_TAG, { expire: 0 });
   return new NextResponse(null, { status: 204 });
 }

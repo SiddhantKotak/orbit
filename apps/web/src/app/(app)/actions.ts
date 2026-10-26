@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import {
   AccountError,
   MemoryVersionConflict,
@@ -17,7 +17,7 @@ import {
   type ProfileSettings,
 } from "@brandloop/db";
 import { StrategySchema } from "@brandloop/ai";
-import { getAccount } from "@/lib/account";
+import { ACCOUNT_CACHE_TAG, getAccount } from "@/lib/account";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -33,6 +33,8 @@ async function run(fn: (userId: string) => Promise<unknown>): Promise<ActionResu
     }
     throw err;
   }
+  // Expire the cached account read first so the very next render sees this change.
+  updateTag(ACCOUNT_CACHE_TAG);
   revalidatePath("/", "layout");
   return { ok: true };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/shell/intent-link";
 import { cn } from "@brandloop/ui";
 import { isActive, mobileTabs } from "@/lib/nav";
 

@@ -16,6 +16,8 @@ export type AccountState = {
   role: TeamRole;
   profiles: Profile[];
   currentProfile: Profile | null;
+  /** Members of the team, for the workspace label. */
+  memberCount: number;
 };
 
 export class AccountError extends Error {}
@@ -30,8 +32,8 @@ function displayName(identity: ClerkIdentity) {
  * and a first profile, mirroring Kleo's "{First}'s Team" default.
  */
 export async function ensureAccount(identity: ClerkIdentity): Promise<AccountState> {
-  const existing = await prisma.user.findUnique({ where: { clerkId: identity.clerkId } });
-  if (existing) return getAccountState(existing.id);
+  const existing = await findAccountByClerkId(identity.clerkId);
+  if (existing) return existing;
 
   const name = displayName(identity);
   const teamName = `${identity.firstName || name}'s Team${identity.teamNameSuffix ?? ""}`;
@@ -72,11 +74,25 @@ function visibleProfilesWhere(userId: string, teamId: string, role: TeamRole) {
   };
 }
 
-export async function getAccountState(userId: string): Promise<AccountState> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  const membership = await primaryMembership(userId);
+const accountUserInclude = {
+  memberships: {
+    where: { team: { deletedAt: null } },
+    orderBy: { createdAt: "asc" },
+    take: 1,
+    include: { team: { include: { _count: { select: { memberships: true } } } } },
+  },
+} as const;
+
+/** Two round trips: the user with their primary membership, team and member count, then the visible profiles. */
+async function loadAccountState(
+  where: { id: string } | { clerkId: string },
+): Promise<AccountState | null> {
+  const user = await prisma.user.findUnique({ where, include: accountUserInclude });
+  if (!user) return null;
+  const membership = user.memberships[0];
+  if (!membership) throw new AccountError("No team found for user");
   const profiles = await prisma.profile.findMany({
-    where: visibleProfilesWhere(userId, membership.teamId, membership.role),
+    where: visibleProfilesWhere(user.id, membership.teamId, membership.role),
     orderBy: { createdAt: "asc" },
   });
   const currentProfile =
@@ -88,7 +104,19 @@ export async function getAccountState(userId: string): Promise<AccountState> {
     role: membership.role,
     profiles,
     currentProfile,
+    memberCount: membership.team._count.memberships,
   };
+}
+
+export async function getAccountState(userId: string): Promise<AccountState> {
+  const state = await loadAccountState({ id: userId });
+  if (!state) throw new AccountError("User not found");
+  return state;
+}
+
+/** The account for a Clerk user id, or null when they have not signed in before. */
+export function findAccountByClerkId(clerkId: string): Promise<AccountState | null> {
+  return loadAccountState({ clerkId });
 }
 
 async function findVisibleProfile(userId: string, profileId: string) {

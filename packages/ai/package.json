@@ -8,7 +8,9 @@
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
     "./measure": "./src/measure.ts",
-    "./style": "./src/style.ts"
+    "./style": "./src/style.ts",
+    "./constants": "./src/constants.ts",
+    "./schemas": "./src/schemas.ts"
   },
   "scripts": {
     "test": "vitest run",
