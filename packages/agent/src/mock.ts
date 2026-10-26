@@ -207,8 +207,13 @@ function route(opts: CallOptions): ScriptStep {
   if (!angle && has.has("presentOptions") && /\bdifferent angles\b/i.test(text) && openLine) {
     return call("presentOptions", scriptedAngles("post", true));
   }
-  const newTopic = !openLine && /\b(create|write|make)\b[^.]*\bpost on\s+(.+?)[.!?]*$/i.exec(text)?.[2];
+  // Angles only for a bare topic: a comparison, question or stance already carries direction and is written directly.
+  const topic = !openLine && /\b(create|write|make)\b[^.]*\bpost on\s+(.+?)[.!?]*$/i.exec(text)?.[2];
+  const newTopic = topic && !/\b(difference between|vs\.?|versus|why|how|when|should|because)\b/i.test(topic) ? topic : null;
   if (newTopic && has.has("presentOptions")) return call("presentOptions", scriptedAngles(newTopic, false));
+  if (topic && !newTopic) {
+    return call("delegateWriting", { request: `Write a short LinkedIn post for the user. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: "none", overrides: null, chosenHook: null, templateSlug: null });
+  }
   if (/\bimages?\b/i.test(text) && /\bsuggest\b/i.test(text)) return call("suggestVisuals", { focusHint: null });
   if (/\b(image|picture)\b/i.test(text) && /\b(make|create|add)\b/i.test(text)) {
     return call("proposeVisual", { prompt: text.slice(0, 1_000), type: "general", aspect: null });

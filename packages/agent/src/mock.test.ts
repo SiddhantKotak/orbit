@@ -96,6 +96,15 @@ describe("createScriptedChatModel", () => {
     // Without the writing tools (before they exist) it just replies.
     expect(textOf(await play(model as never, [user("Draft a post about hiring")], ["saveMemory"]))).toBe("Mock reply.");
   });
+
+  it("shows angles only for a bare topic and writes a directed request directly", async () => {
+    const model = createScriptedChatModel();
+    const tools = ["presentOptions", "delegateWriting", "createDocument"];
+    expect(calls(await play(model as never, [user("Create a post on llm")], tools))[0]!.toolName).toBe("presentOptions");
+    for (const msg of ["Draft a post about the difference between an MVP and a POC", "Write a post on MVP vs POC", "Write a post on why pricing fails"]) {
+      expect(calls(await play(model as never, [user(msg)], tools))[0]!.toolName).toBe("delegateWriting");
+    }
+  });
 });
 
 describe("createScriptedChatModel: editing", () => {
