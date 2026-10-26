@@ -287,7 +287,7 @@ export function Calendar({
                 <li key={p.id}>
                   <Link
                     href={rowHref(p)}
-                    className="orbit-transition flex flex-col gap-[5px] rounded-[12px] bg-panel-hover p-3 text-text hover:bg-line-3"
+                    className="orbit-transition flex flex-col gap-1.5 rounded-[12px] bg-panel-hover p-3 text-text hover:bg-line-3"
                   >
                     <span className="text-[13px] font-medium leading-[1.3]">{p.title}</span>
                     <span className="text-[11px] text-text-3">Edited {relativeTime(p.updatedAt, now).toLowerCase()}</span>

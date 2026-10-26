@@ -147,7 +147,7 @@ function GoalsPanel({ weekDrafts }: { weekDrafts: number }) {
             type="button"
             aria-disabled="true"
             title="Goals become editable once they're saved to your account"
-            className="cursor-not-allowed text-[12px] text-text-3"
+            className="inline-flex min-h-6 min-w-6 cursor-not-allowed items-center justify-center text-[12px] text-text-3"
           >
             Edit
           </button>
@@ -213,7 +213,7 @@ function MilestonesPanel({ milestones }: { milestones: Milestone[] }) {
 function AllBadges({ milestones }: { milestones: Milestone[] }) {
   return (
     <Dialog.Root>
-      <Dialog.Trigger className="orbit-transition rounded-sm text-[12px] text-text-2 hover:text-text">All badges</Dialog.Trigger>
+      <Dialog.Trigger className="orbit-transition inline-flex min-h-6 items-center rounded-sm text-[12px] text-text-2 hover:text-text">All badges</Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className={dialogOverlayClass} />
         <Dialog.Content className={`${dialogContentClass} max-w-md`}>
@@ -353,7 +353,7 @@ function ChecklistPanel({ checklist }: { checklist: { items: ChecklistItem[]; do
               </span>
             )}
             {item.done ? (
-              <Link href={item.href} className="orbit-transition shrink-0 rounded-sm text-[12px] text-text-2 hover:text-text">
+              <Link href={item.href} className="orbit-transition inline-flex min-h-6 shrink-0 items-center rounded-sm text-[12px] text-text-2 hover:text-text">
                 Open
               </Link>
             ) : (

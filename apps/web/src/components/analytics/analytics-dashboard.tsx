@@ -82,7 +82,7 @@ export function AnalyticsDashboard({ views, initialRange = 30 }: { views: Partia
         }
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(250px,100%),1fr))] gap-3">
         {view.stats.map((s) => (
           <StatPanel
             key={s.key}
@@ -107,7 +107,7 @@ export function AnalyticsDashboard({ views, initialRange = 30 }: { views: Partia
           <LineChart current={view.chart.current} previous={view.chart.previous} showPrevious={compare} ticks={view.chart.ticks} summary={view.chart.summary} />
         </section>
 
-        <div className="flex min-w-[min(280px,100%)] flex-[0_1_360px] flex-col gap-3">
+        <div className="flex min-w-[min(280px,100%)] flex-[1_1_360px] min-[1100px]:flex-[0_1_360px] flex-col gap-3">
           <section aria-labelledby="top-posts-h" className="orbit-panel flex flex-1 flex-col gap-1.5 !rounded-[20px] px-2 pb-2 pt-[18px]">
             <h2 id="top-posts-h" className="px-3 pb-1.5 text-sm font-medium text-text">
               Top posts

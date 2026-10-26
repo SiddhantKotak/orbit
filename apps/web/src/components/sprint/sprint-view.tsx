@@ -266,7 +266,7 @@ function DayCell({ day, selected, onSelect }: { day: SprintDay; selected: boolea
         day.status === "upcoming" ? "text-text-soft" : day.status === "missed" ? "text-text-soft" : "text-text",
       )}
     >
-      <span className={cn("flex items-center gap-1.5 text-[11px]", live ? "text-accent-text-2" : "text-text-3")}>
+      <span className={cn("flex items-center gap-1.5 text-[11px]", live ? "text-accent-text-2" : "text-text-2")}>
         {done && (
           <span aria-hidden="true" className="grid size-3.5 place-items-center rounded-full bg-accent-text text-on-accent">
             <CheckIcon className="size-2.5" />

@@ -59,7 +59,7 @@ export function Board({ posts, now, filtered }: { posts: PostRow[]; now: Date; f
                   href={addHref[col.id]!.href}
                   aria-label={addHref[col.id]!.label}
                   title={addHref[col.id]!.label}
-                  className="orbit-transition grid size-[26px] place-items-center rounded-full border border-line-control text-text hover:border-inverse hover:bg-inverse hover:text-on-inverse"
+                  className="orbit-transition grid size-7 place-items-center rounded-full border border-line-control text-text hover:border-inverse hover:bg-inverse hover:text-on-inverse"
                 >
                   <PlusIcon size={12} />
                 </Link>

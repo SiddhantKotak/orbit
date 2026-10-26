@@ -75,7 +75,7 @@ export function PostsScreen({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search posts"
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-text outline-none placeholder:text-text-3"
+        className="-my-px h-10 min-w-0 flex-1 bg-transparent text-[13px] text-text outline-none placeholder:text-text-3"
       />
     </div>
   );
