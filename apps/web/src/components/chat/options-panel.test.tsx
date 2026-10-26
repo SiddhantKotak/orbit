@@ -34,6 +34,15 @@ describe("OptionsPanel", () => {
     expect(html).toMatch(/The steps[\s\S]*?Suggested/);
   });
 
+  it("shows a source badge on a row only when it has one", () => {
+    const withBadge = renderToStaticMarkup(
+      <OptionsPanel panel={{ ...panel, options: [{ ...panel.options[0]!, badge: "From your story" }, panel.options[1]!] }} onPick={() => {}} onClose={() => {}} />,
+    );
+    expect(withBadge.match(/data-option-badge/g)).toHaveLength(1);
+    expect(withBadge).toContain("From your story");
+    expect(html).not.toContain("data-option-badge");
+  });
+
   it("shows the free-input hint only when allowed", () => {
     expect(html).toContain("Or write or tell Orbit your own answer in the chat below");
     const off = renderToStaticMarkup(<OptionsPanel panel={{ ...panel, allowFreeInput: false }} onPick={() => {}} onClose={() => {}} />);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isWritingRequest, learningGuard } from "./learning";
+import { isWritingRequest, learningGuard, shouldLearn, statesFirstPersonFacts } from "./learning";
 
 const KLEO_TEST_PROMPT =
   "Write one LinkedIn post for founders hiring their first engineer. No personal details, invented anecdotes or numbers. Just a test of the writing flow.";
@@ -63,5 +63,28 @@ describe("isWritingRequest", () => {
     for (const t of ["I run a design studio in Pune.", "Remember that I prefer short paragraphs.", "What is my positioning?"]) {
       expect(isWritingRequest(t), t).toBe(false);
     }
+  });
+});
+
+describe("statesFirstPersonFacts and shouldLearn (W11)", () => {
+  const SKIP = "Skip personal details. Write it as practical lessons for founders hiring their first engineer";
+  it("a task framing is not a fact about the user: no learning at all", () => {
+    expect(isWritingRequest(SKIP)).toBe(true);
+    expect(statesFirstPersonFacts(SKIP)).toBe(false);
+    expect(shouldLearn(SKIP)).toBe(false);
+    const v = learningGuard(SKIP, ["Has hired their first engineer", "Is hiring their first engineer"]);
+    expect(v.allowed).toEqual([]);
+  });
+  it("a stated first-person fact inside a writing request still learns", () => {
+    const text = "I run a 6-person studio, write a post about it";
+    expect(statesFirstPersonFacts(text)).toBe(true);
+    expect(shouldLearn(text)).toBe(true);
+    expect(learningGuard(text, ["Runs a 6-person studio"]).allowed).toEqual(["Runs a 6-person studio"]);
+  });
+  it("requests are not statements; plain statements are", () => {
+    expect(statesFirstPersonFacts("I want a post about my company")).toBe(false);
+    expect(statesFirstPersonFacts("Write a post about my company")).toBe(false);
+    expect(statesFirstPersonFacts("We hired our first engineer last year.")).toBe(true);
+    expect(shouldLearn("What is my positioning?")).toBe(true);
   });
 });

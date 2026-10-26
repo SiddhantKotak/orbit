@@ -33,6 +33,7 @@ export const TOOL_LABELS: Record<string, ToolLabel> = {
   getPostVersions: L("Checking earlier versions", "Checked earlier versions", "Couldn't load the versions"),
   // Writing tools (Task 11)
   generateHooks: L("Writing hook options", "Hook options ready", "Couldn't write hooks"),
+  generateIdeas: L("Finding post ideas", "Post ideas ready", "Couldn't find post ideas"),
   presentOptions: L("Preparing angles", "Angles ready", "Couldn't prepare angles"),
   searchTemplates: L("Looking through templates", "Found templates", "Couldn't search templates"),
   readTemplate: L("Reading a template", "Read a template", "Couldn't read that template"),
@@ -64,6 +65,7 @@ export const HIDDEN_OUTPUT_TOOLS: ReadonlySet<string> = new Set([
   "searchKB",
   "readKB",
   "generateHooks",
+  "generateIdeas",
   "presentOptions",
   "searchTemplates",
   "readTemplate",

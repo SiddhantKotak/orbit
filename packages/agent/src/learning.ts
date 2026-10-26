@@ -5,7 +5,7 @@
  */
 
 const WRITING_REQUEST =
-  /^\s*(?:please\s+|can you\s+|could you\s+)?(?:draft|write|compose|create|generate|rewrite|polish|give me|make|suggest|come up with|brainstorm)\b|\b(?:draft|write|compose|generate)\s+(?:me\s+)?(?:a|an|the|some|\d+|five|three|two)?\s*(?:\w+\s+){0,4}(?:post|hooks?|opening|openings|angles?|ideas?|options?|variations?|caption|carousel)\b|\bhook (?:options|variations)\b|\bpost about\b/i;
+  /^\s*(?:please\s+|can you\s+|could you\s+)?(?:draft|write|compose|create|generate|rewrite|polish|give me|make|suggest|come up with|brainstorm)\b|\b(?:draft|write|compose|generate)\s+(?:me\s+)?(?:a|an|the|some|\d+|five|three|two)?\s*(?:\w+\s+){0,4}(?:post|hooks?|opening|openings|angles?|ideas?|options?|variations?|caption|carousel)\b|\bhook (?:options|variations)\b|\bpost about\b|\b(?:write|draft|compose) (?:it|this|that|them)\b|\b(?:skip|without|no) personal (?:details|anecdotes|stories)\b|\bideas? for\b/i;
 
 /** Test content and role-play: nothing in it is a fact about the user. */
 const TEST_MARKERS = /\b(?:test(?:ing)?|dummy|lorem|placeholder|sample|for example|e\.g\.|hypothetical(?:ly)?|pretend|imagine|suppose|what if|as a test|just kidding|made[- ]up|fake)\b|\[e2e:[^\]]*\]/i;
@@ -29,6 +29,29 @@ export function isWritingRequest(userText: string): boolean {
   return WRITING_REQUEST.test(userText);
 }
 
+/** A clause that asks for something rather than stating something ("write a post about it", "skip personal details"). */
+const REQUEST_CLAUSE = /^\s*(?:and\s+|then\s+|so\s+|please\s+)*(?:can you|could you|would you|draft|write|compose|create|generate|rewrite|polish|give me|make|suggest|come up with|brainstorm|skip|avoid|keep|use|show|turn|help)\b/i;
+
+/**
+ * Whether the message states something about the user in the first person ("I run a 6-person studio", "we hired our
+ * first engineer") as a statement, not as part of a request. Clauses are split on sentence ends, commas and semicolons,
+ * so "I run a studio, write a post about it" has one statement and one request.
+ */
+export function statesFirstPersonFacts(userText: string): boolean {
+  return userText
+    .split(/[.!?;\n]+|,\s*/)
+    .some((clause) => FIRST_PERSON.test(clause) && !REQUEST_CLAUSE.test(clause) && !/^\s*i\s+(?:want|need|would like|'d like)\b/i.test(clause));
+}
+
+/**
+ * Whether automatic learning may run at all for this message. A writing request teaches nothing about the person unless
+ * the user also states facts about themselves (or asks outright to remember something).
+ */
+export function shouldLearn(userText: string): boolean {
+  if (EXPLICIT_REMEMBER.test(userText) && !TEST_MARKERS.test(userText)) return true;
+  return !(isWritingRequest(userText) && !statesFirstPersonFacts(userText));
+}
+
 export type LearningVerdict = { allowed: string[]; refused: { fact: string; reason: string }[] };
 
 /**
@@ -44,11 +67,13 @@ export function learningGuard(userText: string, facts: string[]): LearningVerdic
   const verdict: LearningVerdict = { allowed: [], refused: [] };
   const refuse = (fact: string, reason: string) => verdict.refused.push({ fact, reason });
   const writing = isWritingRequest(userText);
+  const closed = !shouldLearn(userText);
   const test = TEST_MARKERS.test(userText);
   const explicit = EXPLICIT_REMEMBER.test(userText);
   const stated = userText.split(/(?<=[.!?])\s+|\n+/).filter((s) => FIRST_PERSON.test(s));
   for (const fact of facts) {
-    if (test) refuse(fact, "test content");
+    if (closed) refuse(fact, "learned from a writing request");
+    else if (test) refuse(fact, "test content");
     else if (INSTRUCTION_FACT.test(fact)) refuse(fact, "a writing instruction, not a fact about you");
     else if (PASSING.test(fact) || (PASSING.test(userText) && !explicit)) refuse(fact, "a passing remark");
     else if (writing && !explicit) {

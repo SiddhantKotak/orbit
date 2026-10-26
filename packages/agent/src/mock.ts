@@ -1,6 +1,7 @@
 import type { AiClient } from "@brandloop/ai";
 import type { ResearchProvider } from "./research/provider";
 import { isTimely } from "./research/timely";
+import { isIdeasRequest } from "./writing/ideas";
 import { renderBlocks, type WriterBlock } from "./writing/render";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
@@ -142,6 +143,7 @@ const AFTER_TOOL: Record<string, string> = {
   editVisual: "On it. The new image will appear in the panel.",
   analyzePost: "Here is the analysis. Fix the first item before anything else.",
   researchTopic: "Here is what changed in the window: two dated items fit, and one older item was left out.",
+  generateIdeas: "Here are your ideas.",
   generateHooks: "Here are five hook options, each a different kind. Pick the one you like.",
 };
 
@@ -181,6 +183,7 @@ function route(opts: CallOptions): ScriptStep {
   }
   const last = results.at(-1);
   if (last) {
+    if (last.toolName === "researchTopic" && isIdeasRequest(text)) return call("generateIdeas", { count: 5 });
     if (last.toolName === "researchTopic" && /\b(draft|write)\b/i.test(text)) {
       return call("delegateWriting", { request: `Write a short LinkedIn post for the user from the research. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: null, overrides: null, chosenHook: null, templateSlug: null });
     }
@@ -214,6 +217,11 @@ function route(opts: CallOptions): ScriptStep {
   if (topic && !newTopic) {
     return call("delegateWriting", { request: `Write a short LinkedIn post for the user. Their request: ${text.slice(0, 1_000)}`, specialty: "post", personalDetails: "none", overrides: null, chosenHook: null, templateSlug: null });
   }
+  // Post ideas go to the ideas step (before the timely check: "this week" there is a planning window, not news).
+  if (!angle && isIdeasRequest(text) && has.has("generateIdeas")) {
+    if (has.has("researchTopic") && isTimely(text).timely) return call("researchTopic", { query: text.slice(0, 300), window: null, site: null });
+    return call("generateIdeas", { count: /\b(\d)\b/.exec(text)?.[1] ? Math.min(6, Math.max(3, Number(/\b(\d)\b/.exec(text)![1]))) : 5 });
+  }
   if (/\bimages?\b/i.test(text) && /\bsuggest\b/i.test(text)) return call("suggestVisuals", { focusHint: null });
   if (/\b(image|picture)\b/i.test(text) && /\b(make|create|add)\b/i.test(text)) {
     return call("proposeVisual", { prompt: text.slice(0, 1_000), type: "general", aspect: null });
@@ -227,6 +235,10 @@ function route(opts: CallOptions): ScriptStep {
     if (typeof sys?.content === "string" && sys.content.includes("This request needs current facts but web search is off")) {
       return { text: "Web search is off, so I can't check this week's news. Turn it on and ask again." };
     }
+  }
+  // The Kleo failure, replayed: a task framing that makes the model "learn" a fact. The learning guard must refuse it.
+  if (/\bskip personal details\b/i.test(text) && /\bhiring their first engineer\b/i.test(text) && has.has("saveMemory")) {
+    return call("saveMemory", { category: "about", topic: null, facts: ["Has hired their first engineer"] });
   }
   if (/\bremember\b/i.test(text)) {
     const fact = text.replace(/^.*?\bremember\b\s*(that\s+)?/i, "").replace(/[.!?\s]+$/, "") || text;
@@ -567,6 +579,19 @@ const ROUTES: { match: RegExp; output: unknown }[] = [
   },
 ];
 
+/** One idea per assigned slot of the ideas step's prompt, built from that slot's own source text. */
+const OPENERS = ["Stop ignoring", "Why we changed", "Three lessons from", "The truth about", "Before you start", "What nobody says about"];
+function mockIdeas(prompt: string): unknown | null {
+  const slots = [...prompt.matchAll(/^Slot (\d+) \| ([^|\n]+) \|[^\n]*\n<source>\n([\s\S]*?)\n<\/source>/gm)];
+  if (slots.length === 0) return null;
+  return {
+    ideas: slots.map((m) => {
+      const subject = m[3]!.replace(/\s+/g, " ").split(/[:.]/)[0]!.trim().slice(0, 50);
+      return { slot: Number(m[1]), hook: `${OPENERS[(Number(m[1]) - 1) % OPENERS.length]} ${subject}`, angle: `Turn ${subject} into one practical lesson.`, why: `Built on ${m[2]!.trim().toLowerCase()}.` };
+    }),
+  };
+}
+
 /** A specialist client for mock mode: `text` names chats, `json` returns the first canned output the schema accepts. */
 export function scriptedAi(): AiClient {
   return {
@@ -590,6 +615,11 @@ export function scriptedAi(): AiClient {
       const researched = mockResearchPost(prompt);
       if (researched) {
         const parsed = schema.safeParse(researched);
+        if (parsed.success) return parsed.data;
+      }
+      const ideas = mockIdeas(prompt);
+      if (ideas) {
+        const parsed = schema.safeParse(ideas);
         if (parsed.success) return parsed.data;
       }
       const hooks = mockHooks(prompt);
