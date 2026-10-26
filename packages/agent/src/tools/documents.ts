@@ -74,6 +74,9 @@ export async function createDocumentFromHandoff(ctx: TurnContext, input: CreateD
     return { status: "needs-user-input", missingInput: missing };
   }
 
+  const blocked = await ctx.screenText?.(payload.data.draft);
+  if (blocked) return `Refused: ${blocked}` as never;
+
   const title = (input.title.trim() || payload.data.title.trim() || "Untitled post").slice(0, LIMITS.titleChars);
   const write = (chunk: { type: `data-${string}`; id?: string; data: unknown; transient?: boolean }) => ctx.writer?.write(chunk as never);
   write({ type: "data-creating", data: true, transient: true });
@@ -235,6 +238,8 @@ export async function updateDocumentRun(ctx: TurnContext, input: UpdateDocumentI
     const introduced = polished.log.remaining.filter((v) => v.level === "hard" && !baseline.has(v.id));
     if (introduced.length > 0) return editRequirementsMissed(introduced.map((v) => v.detail));
     if (polished.text === doc.text) return unchanged(doc, res.changeSummary || "No change was needed.");
+    const blocked = await ctx.screenText?.(polished.text);
+    if (blocked) return `Refused: ${blocked}`;
     const saved = await saveDocumentVersion(ctx.profileId, doc.id, {
       text: polished.text,
       hook: hookOf(polished.text),
@@ -321,6 +326,8 @@ export async function proposeDocumentEditsRun(
     // A passage can't be linted as a post, but the rules that work on characters apply to it too.
     const tidy = lastResort(mechanicalFix(replacement, grounding.rules, grounding.style.bullet).text, grounding.rules).text;
     if (tidy.length > LIMITS.proposalChars) return "Failed: the suggested passage came back too long. Try a shorter passage.";
+    const blocked = await ctx.screenText?.(tidy);
+    if (blocked) return `Refused: ${blocked}`;
     if (tidy === input.targetText) return "Failed: the suggestion didn't change the passage. Ask the user what they'd like different.";
     return {
       proposalId: toolCallId,
