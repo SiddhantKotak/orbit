@@ -1,11 +1,14 @@
-import { getTemplateBySlug } from "@brandloop/db";
+import { getTemplateBySlug, type TemplateRow } from "@brandloop/db";
 import { tool } from "ai";
 import { z } from "zod";
 import type { TurnContext } from "../context";
 import { FRAMEWORKS } from "../library";
 import { frameData, type DataSource } from "../data";
 import { bannedWordsFromRules, mergeChecks, runDeterministicChecks, runWritingChecks } from "../specialists/checks";
-import { planHasList, renderFormatBlock, selectFormat } from "../writing/format";
+import { planFromSkeleton, planHasList, renderFormatBlock, selectFormat } from "../writing/format";
+import { gatherEvidence } from "../writing/evidence";
+import { missingNeeds } from "../library/pick";
+import { autoPickTemplate } from "./templates";
 import { lintPost, type Violation } from "../writing/lint";
 import { renderBrief, BRIEF_CHARS } from "../research/brief";
 import { polishDraft, polishSummary, polishText } from "../writing/polish";
@@ -41,10 +44,12 @@ export type WritingInput = {
   personalDetails?: "allowed" | "none" | null;
   overrides?: TurnOverrides | null;
   chosenHook?: { text: string; spine: Spine | null } | null;
+  /** A template slug the user asked for (found with searchTemplates). Null or unknown: the server picks one. */
+  templateSlug?: string | null;
 };
 
 /** The brief the writer sees: the orchestrator's request, then the server's own contract lines (never model-written). */
-function briefFor(input: WritingInput, personal: "allowed" | "none", accepted: Partial<TurnOverrides>): string {
+function briefFor(input: WritingInput, personal: "allowed" | "none", accepted: Partial<TurnOverrides>, missing: string[] = []): string {
   const lines = [input.request];
   if (personal === "none") lines.push("personalDetails: none. Write claims about the subject only; no first-person experience claims.");
   if (Object.keys(accepted).length) lines.push(`The user asked in this message to allow: ${Object.keys(accepted).map((k) => k.replace(/^allow/, "").toLowerCase()).join(", ")}.`);
@@ -52,6 +57,11 @@ function briefFor(input: WritingInput, personal: "allowed" | "none", accepted: P
   if (hook) {
     lines.push(`chosenHook: open the post with exactly this hook: "${hook.text}"`);
     if (hook.spine) lines.push(`The hook promises: ${hook.spine.claim}. The post must deliver: ${hook.spine.mustDeliver}. Body shape: ${hook.spine.bodyShape}.`);
+  }
+  if (missing.length) {
+    lines.push(
+      `The chosen template needs ${missing.join(" and ")}, and neither is in the request or the user's material. Do not invent them and do not write a draft: return readiness "needs-user-input" with blocks [], and ask for ${missing.join(" and ")} in missingFacts, clarifyingQuestion and missingInput.`,
+    );
   }
   return lines.join("\n\n");
 }
@@ -94,10 +104,30 @@ export async function delegateWritingRun(
     const research = ctx.research.brief;
     // A post that uses research ends with a Sources line, so links in that last block are expected (design §6.1, user decision).
     if (research && research.items.length > 0) grounding.rules.hard.sourcesInPost = true;
-    const request = briefFor(input, personal, accepted);
-    const pinned = ctx.selections.formatId;
-    const template = pinned && !FRAMEWORKS.some((f) => f.id === pinned) ? await getTemplateBySlug(pinned).catch(() => null) : null;
+    const facts = provenanceText(grounding, input.request);
+    const evidence = gatherEvidence({ facts, topic: input.request, hasKnowledge: grounding.knowledge.length > 0, hasResearch: Boolean(research && research.items.length > 0) });
+    // A template the user named (composer pick, or an explicit ask the orchestrator resolved) is used as asked; otherwise the server picks one.
+    const pinned = ctx.selections.formatId ?? input.templateSlug ?? null;
+    const own = (t: TemplateRow | null) => (t && (t.system || t.profileId === ctx.profileId) ? t : null);
+    const pinnedTemplate = pinned && !FRAMEWORKS.some((f) => f.id === pinned) ? own(await getTemplateBySlug(pinned).catch(() => null)) : null;
+    const pinnedFramework = Boolean(pinned && FRAMEWORKS.some((f) => f.id === pinned));
+    const forbidLists = grounding.rules.hard.forbidLists;
+    const template =
+      pinnedTemplate ??
+      (pinnedFramework
+        ? null
+        : await autoPickTemplate(ctx, {
+            category: ctx.pickedAngle?.category ?? null,
+            evidence,
+            seed: `${ctx.chatId}:${input.request}`,
+            // The user's rules win: with lists forbidden, a list template is not offered.
+            filter: forbidLists ? (t) => !planHasList(planFromSkeleton(t.skeleton)) : undefined,
+          }));
     const format = selectFormat({ selectedFormatId: pinned, postType: null, style: grounding.styleProfile, request: input.request, template });
+    // Only a template the user picked can be missing its inputs here (an auto-pick is gated); then the writer asks instead of drafting.
+    const missing = pinnedTemplate ? missingNeeds(pinnedTemplate.needs, evidence) : [];
+    const request = briefFor(input, personal, accepted, missing);
+    if (template) ctx.templateChoices = (ctx.templateChoices ?? new Map()).set(toolCallId, { templateId: template.id, source: pinnedTemplate ? "picked" : "auto" });
     // A new post: there is no open document (see the short-circuit above), so no source revision either.
     const res = await runSpecialist(ctx.ai, "post-writing", {
       request,
@@ -106,7 +136,7 @@ export async function delegateWritingRun(
       skills: WRITING_SKILLS,
       abortSignal,
       render: { bullet: grounding.style.bullet, numbered: true },
-      format: renderFormatBlock(format),
+      format: renderFormatBlock(format) + (forbidLists && format.skeleton ? "\nThe user's rules forbid lists: write any list beat as short prose lines." : ""),
     });
     if (!res.ok) {
       return `Failed: the writing specialist couldn't produce a usable draft (${res.reason}). Ask the user to rephrase or try again.`;
@@ -128,7 +158,7 @@ export async function delegateWritingRun(
         groundingText: provenanceText(grounding, input.request),
         researchDates: research ? research.items.flatMap((i) => [i.published, i.eventDate]).filter((d): d is string => Boolean(d)) : null,
         personalDetails: personal,
-        expectList: format.source === "picked" && planHasList(format.plan),
+        expectList: format.source === "picked" && planHasList(format.plan) && !forbidLists,
       };
       const common = { rules: grounding.rules, lintCtx, request: input.request, grounding: renderGrounding(grounding), deadline: ctx.deadline, abortSignal, render: { bullet: grounding.style.bullet, numbered: true } };
       const started = Date.now();
@@ -235,9 +265,10 @@ export function delegateTools(ctx: TurnContext) {
         personalDetails: z.enum(["allowed", "none"]).nullable().describe('"none" when the user said to skip personal details or personal anecdotes; otherwise "allowed" or null.'),
         overrides: OverridesSchema.nullable().describe("Only when the user's latest message asks to allow something their saved rules forbid for this one post (emoji, hashtags, dashes, a P.S., links). Otherwise null. The server ignores an override the user did not ask for."),
         chosenHook: z.object({ text: z.string(), spine: SpineSchema.nullable() }).nullable().describe("The hook the user picked, when they picked one."),
+        templateSlug: z.string().max(200).nullable().describe("Only when the user asked for a specific structure and you found it with searchTemplates: that template's slug. Otherwise null; the server picks a fitting template itself."),
       }),
-      execute: ({ request, personalDetails, overrides, chosenHook }, { toolCallId, abortSignal }) =>
-        delegateWritingRun(ctx, { request, personalDetails, overrides, chosenHook }, toolCallId, abortSignal),
+      execute: ({ request, personalDetails, overrides, chosenHook, templateSlug }, { toolCallId, abortSignal }) =>
+        delegateWritingRun(ctx, { request, personalDetails, overrides, chosenHook, templateSlug }, toolCallId, abortSignal),
       toModelOutput: ({ output }) => specialistModelOutput(output),
     }),
     delegateEditing: tool({

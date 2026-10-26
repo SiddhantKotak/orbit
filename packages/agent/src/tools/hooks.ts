@@ -6,7 +6,8 @@ import { defuseTags } from "../data";
 import { buildGrounding, provenanceText, renderGrounding } from "../specialists/grounding";
 import { gatePurposes, HOOK_PURPOSES, HOOK_PURPOSE_IDS, pickPurposes, type HookPurpose } from "../library";
 import { lintPost } from "../writing/lint";
-import { extractNumbers, mobileLines } from "../writing/measure";
+import { gatherEvidence } from "../writing/evidence";
+import { mobileLines } from "../writing/measure";
 import { specialistModelOutput } from "./delegate";
 import { isAbort } from "./run";
 
@@ -93,8 +94,8 @@ export async function generateHooksRun(
     });
     const rules = grounding.rules;
     const facts = provenanceText(grounding, `${input.topic}\n${input.draftBody ?? ""}`);
-    const hasStory = grounding.knowledge.length > 0 || /\b(?:I|we)\s+(?:\w+\s+)?(?:hired|built|launched|started|lost|made|learned|failed|shipped|quit|raised|sold)\b|\bmy (?:first|last|client|team|company)\b/i.test(facts);
-    const evidence = { hasStory, numbers: extractNumbers(facts), hasNews: /\b(?:announc|launch|releas|new feature|just shipped)/i.test(input.topic) };
+    const evidence = gatherEvidence({ facts, topic: input.topic, hasKnowledge: grounding.knowledge.length > 0 });
+    const { hasStory } = evidence;
     const { available, skipped } = gatePurposes(evidence, rules.hard);
     const recent = await recentPurposes(ctx);
     const assigned = pickPurposes({ count, available, recent, seed: `${ctx.chatId}:${input.topic}` });

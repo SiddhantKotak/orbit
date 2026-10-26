@@ -30,6 +30,8 @@ describe("compileHardRules", () => {
     ["- British spelling", "spelling"],
     ["- Never open with a rhetorical question", "forbidRhetoricalOpening"],
     ["- No links in the post", "forbidLinks"],
+    ["- No bullet lists", "forbidLists"],
+    ["- Never use numbered lists", "forbidLists"],
   ] as const)("compiles %s", (line, rule) => {
     expect(compileHardRules(`## Don't\n${line}`).matched.map((m) => m.rule)).toContain(rule);
   });

@@ -18,7 +18,7 @@ export function oneLine(text: string): string {
   return text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/ {2,}/g, " ").trim();
 }
 
-export type DataSource = "memory" | "knowledge base" | "content strategy" | "writing specialist" | "editing specialist" | "web research";
+export type DataSource = "memory" | "knowledge base" | "content strategy" | "writing specialist" | "editing specialist" | "web research" | "template library";
 
 /** Status lines keep their prefix first so the UI and the model can read the outcome. */
 const STATUS = /^(Failed:|Refused:|✓ )/;

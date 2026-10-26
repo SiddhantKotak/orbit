@@ -448,7 +448,7 @@ describe("drafting a post", () => {
     const model = scriptedModel([
       {
         toolCalls: [
-          { toolCallId: "call_w", toolName: "delegateWriting", input: { request: "A short post about MVP vs POC for founders", specialty: "post", personalDetails: null, overrides: null, chosenHook: null } },
+          { toolCallId: "call_w", toolName: "delegateWriting", input: { request: "A short post about MVP vs POC for founders", specialty: "post", personalDetails: null, overrides: null, chosenHook: null, templateSlug: null } },
         ],
       },
       { toolCalls: [{ toolName: "createDocument", input: { title: "MVP versus POC", kind: "text", specialistHandoffToolCallId: "call_w" } }] },
@@ -485,7 +485,7 @@ describe("drafting a post", () => {
     const model = scriptedModel([
       {
         toolCalls: [
-          { toolCallId: "call_w2", toolName: "delegateWriting", input: { request: "Another short post about MVP vs POC for founders", specialty: "post", personalDetails: null, overrides: null, chosenHook: null } },
+          { toolCallId: "call_w2", toolName: "delegateWriting", input: { request: "Another short post about MVP vs POC for founders", specialty: "post", personalDetails: null, overrides: null, chosenHook: null, templateSlug: null } },
         ],
       },
       { toolCalls: [{ toolName: "createDocument", input: { title: "Second", kind: "text", specialistHandoffToolCallId: "call_w2" } }] },

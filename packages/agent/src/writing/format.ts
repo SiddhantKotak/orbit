@@ -35,7 +35,7 @@ function planFor(type: PostType | null, listKind: "bullets" | "numbered"): Block
 }
 
 /** A template's skeleton read as a plan: blank-line blocks, "1." lines are numbered, "-" lines are bullets. */
-function planFromSkeleton(skeleton: string): BlockPlan {
+export function planFromSkeleton(skeleton: string): BlockPlan {
   return skeleton.split(/\n\s*\n/).map((block, i) => {
     const lines = block.split("\n").filter((l) => l.trim());
     const numbered = lines.filter((l) => /^\d+\./.test(l.trim())).length >= 2;

@@ -5,10 +5,10 @@ const ALL = new Set<HookPurpose>(HOOK_PURPOSE_IDS);
 const DENY = ["justin welsh", "jasmin alic", "george blackman", "lara acosta", "dan koe", "alex hormozi", "sahil bloom", "kleo", "linkedin influencer"];
 
 describe("library", () => {
-  it("ships 12 purposes, 6 frameworks, 15 categories with no creator names", () => {
+  it("ships 12 purposes, 6 frameworks, 19 categories with no creator names", () => {
     expect(HOOK_PURPOSES).toHaveLength(12);
     expect(FRAMEWORKS).toHaveLength(6);
-    expect(CATEGORIES).toHaveLength(15);
+    expect(CATEGORIES).toHaveLength(19);
     const all = JSON.stringify([HOOK_PURPOSES, FRAMEWORKS, CATEGORIES]).toLowerCase();
     for (const name of DENY) expect(all).not.toContain(name);
     expect(new Set(HOOK_PURPOSES.map((p) => p.id)).size).toBe(12);

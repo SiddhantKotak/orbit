@@ -1,6 +1,7 @@
 import { stripCitations } from "../client/sanitize";
 import {
   createDocumentForChat,
+  recordTemplateUse,
   DocumentError,
   DocumentVersionConflict,
   getChatDocument,
@@ -99,6 +100,13 @@ export async function createDocumentFromHandoff(ctx: TurnContext, input: CreateD
     return failed("something went wrong saving the post.");
   }
   ctx.documentRef.current = doc;
+  const used = ctx.templateChoices?.get(id);
+  if (used) {
+    // The rotation and the edit-ratio scores read this; a failure here must not lose the post.
+    await recordTemplateUse({ profileId: ctx.profileId, templateId: used.templateId, documentId: doc.id, source: used.source }).catch((err) =>
+      console.error(`[agent] recording template use failed: ${err instanceof Error ? err.message : String(err)}`),
+    );
+  }
   for (let i = 0; i < doc.text.length; i += DELTA_CHARS) {
     write({ type: "data-textDelta", data: { id: doc.id, text: doc.text.slice(i, i + DELTA_CHARS) }, transient: true });
   }

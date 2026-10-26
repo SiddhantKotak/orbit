@@ -5,8 +5,8 @@ const input = PresentOptionsInput.parse({
   preamble: "LLMs can support several strong posts.",
   question: "Which angle should the LLM post take?",
   options: [
-    { id: "a", label: "The myth", explainer: "Contrarian.", brief: "SECRET-BRIEF-A" },
-    { id: "b", label: "The steps", explainer: "Practical.", brief: "SECRET-BRIEF-B" },
+    { id: "a", label: "The myth", explainer: "Contrarian.", brief: "SECRET-BRIEF-A", category: "opinion" },
+    { id: "b", label: "The steps", explainer: "Practical.", brief: "SECRET-BRIEF-B", category: "made-up" },
   ],
   recommendedOptionId: "b",
   allowFreeInput: null,
@@ -19,7 +19,7 @@ const stored = [
 
 describe("presentOptions", () => {
   it("rejects fewer than 2 or more than 5 options, duplicate ids and unknown recommendations", () => {
-    const opt = (id: string) => ({ id, label: id, explainer: "e", brief: "b" });
+    const opt = (id: string) => ({ id, label: id, explainer: "e", brief: "b", category: null });
     const base = { preamble: null, question: "q", recommendedOptionId: null, allowFreeInput: null, freeInputPlaceholder: null };
     expect(PresentOptionsInput.safeParse({ ...base, options: [opt("a")] }).success).toBe(false);
     expect(PresentOptionsInput.safeParse({ ...base, options: "abcdef".split("").map(opt) }).success).toBe(false);
@@ -44,7 +44,15 @@ describe("resolveOptionPick", () => {
       question: "Which angle should the LLM post take?",
       label: "The steps",
       brief: "SECRET-BRIEF-B",
+      category: null, // "made-up" is not a library category
     });
+    expect(resolveOptionPick(stored, { pickerToolCallId: "call_1", optionId: "a" })?.category).toBe("opinion");
+  });
+
+  it("reads a picker stored before options had a category", () => {
+    const legacy = JSON.parse(JSON.stringify(stored)) as typeof stored;
+    for (const o of (legacy[1]!.parts[0] as unknown as { input: { options: Record<string, unknown>[] } }).input.options) delete o.category;
+    expect(resolveOptionPick(legacy, { pickerToolCallId: "call_1", optionId: "a" })).toMatchObject({ label: "The myth", category: null });
   });
 
   it("returns null for an unknown option, an unknown picker or no pick", () => {

@@ -70,6 +70,7 @@ export function runWritingChecks(text: string, rules: EffectiveRules, ctx: LintC
   if (h.forbidHashtags) enforced.push("hashtags");
   if (h.forbidPostscript) enforced.push("postscript");
   if (h.forbidLinks) enforced.push("links");
+  if (h.forbidLists) enforced.push("lists");
   if (h.forbidRhetoricalOpening) enforced.push("rhetorical-opening");
   if (h.maxBlockLines !== null) enforced.push("block-lines");
   if (ctx.groundingText !== null) enforced.push("number-provenance");
@@ -92,6 +93,7 @@ const WRITING_PASS: Partial<Record<LintId, string>> = {
   hashtags: "No hashtags",
   postscript: "No P.S.",
   links: "No links",
+  lists: "No lists",
   "rhetorical-opening": "No rhetorical opening",
   "block-lines": "Blocks fit your line limit",
   "number-provenance": "Every number comes from your material",

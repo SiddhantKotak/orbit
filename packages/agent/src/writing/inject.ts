@@ -26,6 +26,7 @@ function hardLines(h: HardRules): string[] {
   if (h.bannedPhrases.length) out.push(`Never use these words or phrases: ${h.bannedPhrases.join(", ")}.`);
   if (h.forbidRhetoricalOpening) out.push("Do not open with a question.");
   if (h.forbidLinks) out.push("No links in the post.");
+  if (h.forbidLists) out.push("No bullet or numbered lists; write every list beat as short prose lines.");
   if (h.spelling) out.push(h.spelling === "en-GB" ? "Use British spelling." : "Use American spelling.");
   if (h.sourcesInPost) out.push("When research is used, end with a Sources line.");
   return out;

@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { CATEGORIES } from "../library/categories";
 
 const OptionInput = z.object({
   id: z.string().min(1).max(40),
@@ -7,6 +8,8 @@ const OptionInput = z.object({
   explainer: z.string().min(1).max(240),
   /** The detailed writing instructions for this option. Stays on the server: never part of the tool's output. */
   brief: z.string().min(1).max(2_000),
+  /** The kind of post this angle is (a category id from the template library), or null. Steers which template the writer gets. Stays on the server. */
+  category: z.string().max(40).nullable(),
 });
 
 export const PresentOptionsInput = z
@@ -52,7 +55,7 @@ export function presentOptionsOutput(input: PresentOptionsInput): PresentOptions
 }
 
 export type OptionPick = { pickerToolCallId: string; optionId: string };
-export type PickedAngle = { question: string; label: string; brief: string };
+export type PickedAngle = { question: string; label: string; brief: string; category: string | null };
 
 type StoredMessage = { role: string; parts: unknown };
 
@@ -67,10 +70,13 @@ export function resolveOptionPick(messages: StoredMessage[], pick: OptionPick | 
     if (m.role !== "assistant" || !Array.isArray(m.parts)) continue;
     for (const part of m.parts as { type?: unknown; toolCallId?: unknown; input?: unknown }[]) {
       if (part?.type !== "tool-presentOptions" || part.toolCallId !== pick.pickerToolCallId) continue;
-      const parsed = PresentOptionsInput.safeParse(part.input);
+      // Pickers stored before options had a category have none: read that as null.
+      const raw = part.input as { options?: unknown } | null;
+      const input = raw && Array.isArray(raw.options) ? { ...raw, options: raw.options.map((o) => ({ category: null, ...(o as object) })) } : part.input;
+      const parsed = PresentOptionsInput.safeParse(input);
       if (!parsed.success) return null;
       const option = parsed.data.options.find((o) => o.id === pick.optionId);
-      return option ? { question: parsed.data.question, label: option.label, brief: option.brief } : null;
+      return option ? { question: parsed.data.question, label: option.label, brief: option.brief, category: CATEGORIES.some((c) => c.id === option.category) ? option.category : null } : null;
     }
   }
   return null;
@@ -80,7 +86,7 @@ export function optionTools() {
   return {
     presentOptions: tool({
       description:
-        "Ask the user to choose between options, shown as a panel above their message box. Use it for a new post when the user gave only a topic: offer 3 or 4 distinct angles. `question` is the heading. Each option has a short `label`, a one-line `explainer` of why it works, and a hidden `brief`: complete writing instructions for that angle, grounded in what you know about the user, never inventing personal facts. Set `recommendedOptionId` to the best fit (null if none). Pass null for fields you do not need; allowFreeInput null means true. The turn ends after this call: add at most the one-sentence `preamble`, never list the options in text.",
+        `Ask the user to choose between options, shown as a panel above their message box. Use it for a new post when the user gave only a topic: offer 3 or 4 distinct angles. \`question\` is the heading. Each option has a short \`label\`, a one-line \`explainer\` of why it works, and a hidden \`brief\`: complete writing instructions for that angle, grounded in what you know about the user, never inventing personal facts, and a \`category\` (the kind of post that angle is, one of: ${CATEGORIES.map((c) => c.id).join(", ")}; null if none fits). Set \`recommendedOptionId\` to the best fit (null if none). Pass null for fields you do not need; allowFreeInput null means true. The turn ends after this call: add at most the one-sentence \`preamble\`, never list the options in text.`,
       inputSchema: PresentOptionsInput,
       execute: (input) => presentOptionsOutput(input),
       toModelOutput: () => ({ type: "text", value: "The options are on the user's screen. Stop now and wait for their pick." }),

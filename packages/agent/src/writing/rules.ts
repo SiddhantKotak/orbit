@@ -19,6 +19,7 @@ export type HardRules = {
   bannedPhrases: string[];
   forbidRhetoricalOpening: boolean;
   forbidLinks: boolean;
+  forbidLists: boolean;
   spelling: "en-GB" | "en-US" | null;
   sourcesInPost: boolean;
 };
@@ -33,6 +34,7 @@ export const DEFAULT_HARD_RULES: HardRules = {
   bannedPhrases: [],
   forbidRhetoricalOpening: false,
   forbidLinks: false,
+  forbidLists: false,
   spelling: null,
   sourcesInPost: false,
 };
@@ -79,6 +81,7 @@ function rulesInLine(raw: string): { rule: keyof HardRules; value?: unknown }[] 
   else if (/\bamerican (?:english|spelling)\b|\bus english\b|\ben-us\b/i.test(line)) out.push({ rule: "spelling", value: "en-US" });
   if (neg && /rhetorical/i.test(line)) out.push({ rule: "forbidRhetoricalOpening" });
   if (neg && /\b(?:links?|urls?)\b/i.test(line) && !/\bsources?\b/i.test(line)) out.push({ rule: "forbidLinks" });
+  if (neg && /\b(?:bullets?|bulleted|(?:bullet|numbered)\s+lists?|lists)\b/i.test(line) && !/\bemoji/i.test(line)) out.push({ rule: "forbidLists" });
   if (!neg && /sources?\s+line|cite\s+(?:your\s+)?sources|include\s+sources/i.test(line)) out.push({ rule: "sourcesInPost" });
   return out;
 }
@@ -237,6 +240,7 @@ const CHIP_ORDER: { rule: keyof HardRules; label: (r: HardRules) => string | nul
   { rule: "maxBlockLines", label: (r) => (r.maxBlockLines !== null ? `${r.maxBlockLines} lines per block at most` : null) },
   { rule: "forbidRhetoricalOpening", label: (r) => (r.forbidRhetoricalOpening ? "No rhetorical opening" : null) },
   { rule: "forbidLinks", label: (r) => (r.forbidLinks ? "No links" : null) },
+  { rule: "forbidLists", label: (r) => (r.forbidLists ? "No lists" : null) },
   { rule: "spelling", label: (r) => (r.spelling === "en-GB" ? "British spelling" : r.spelling === "en-US" ? "American spelling" : null) },
   { rule: "bannedPhrases", label: (r) => (r.bannedPhrases.length ? `${r.bannedPhrases.length} banned word${r.bannedPhrases.length === 1 ? "" : "s"}` : null) },
   { rule: "sourcesInPost", label: (r) => (r.sourcesInPost ? "Sources line" : null) },

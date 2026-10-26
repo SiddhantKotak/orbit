@@ -9,7 +9,7 @@ import type { EffectiveRules, PostType } from "./rules";
 
 export type LintId =
   | "emoji" | "dashes" | "hashtags" | "postscript" | "links" | "banned-phrase" | "rhetorical-opening"
-  | "block-lines" | "hook-length" | "fold" | "one-line-blocks" | "list-adjacency" | "post-length" | "list-expected"
+  | "block-lines" | "hook-length" | "fold" | "one-line-blocks" | "list-adjacency" | "post-length" | "list-expected" | "lists"
   | "number-provenance" | "date-provenance" | "first-person" | "placeholders" | "markdown";
 
 export type Violation = { id: LintId; level: "hard" | "target" | "advice"; detail: string; block: number | null };
@@ -101,7 +101,8 @@ export function lintPost(text: string, rules: EffectiveRules, ctx: LintContext):
   if (m.chars > MAX_LENGTH) add("post-length", "hard", `${m.chars.toLocaleString("en-US")} characters (limit 3,000)`);
   else if (m.chars > 0 && (m.chars < targets.postChars.low * 0.85 || m.chars > targets.postChars.high * 1.15))
     add("post-length", "target", `${m.chars} characters; this style runs ${targets.postChars.low}-${targets.postChars.high}`);
-  if (m.bulletLists + m.numberedLists === 0) {
+  if (hard.forbidLists && m.bulletLists + m.numberedLists > 0) add("lists", "hard", "A list, but your rules forbid lists");
+  if (m.bulletLists + m.numberedLists === 0 && !hard.forbidLists) {
     if (ctx.expectList) add("list-expected", "target", "The chosen format has a list, and the post has none");
     else if (ctx.postType === "framework" || ctx.postType === "how-to") add("list-expected", "advice", "A framework or how-to post reads best with a list");
   }
