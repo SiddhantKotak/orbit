@@ -31,8 +31,8 @@ export default async function Page() {
 
   return (
     <>
-      <PageHeader className="max-w-[1120px]" title="Knowledge" subtitle={subtitle} />
-      <PageBody className="max-w-[1120px]">
+      <PageHeader title="Knowledge" subtitle={subtitle} />
+      <PageBody>
         <RefreshWhileIndexing active={items.some((i) => i.status === "PROCESSING")} />
         {items.length === 0 && (
           <div className="mb-4 flex max-w-[60ch] flex-col gap-3">

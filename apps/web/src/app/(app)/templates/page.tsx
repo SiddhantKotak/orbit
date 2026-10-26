@@ -7,11 +7,10 @@ export default function Page() {
   return (
     <>
       <PageHeader
-        className="max-w-[1120px]"
         title="Templates"
         subtitle="Post structures and opening lines that work. Save the ones you like, or use one to start a draft in your voice."
       />
-      <PageBody className="max-w-[1120px]">
+      <PageBody>
         <TemplatesLibrary />
       </PageBody>
     </>

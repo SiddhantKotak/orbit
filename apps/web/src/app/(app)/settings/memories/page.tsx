@@ -43,11 +43,12 @@ export default async function Page() {
   return (
     <>
       <PageHeader
+        className="max-w-[880px]"
         title="Memories"
         subtitle="The facts Orbit uses to make every post sound like you and talk about what you actually know."
         actions={hasAny ? <ImportDialog /> : undefined}
       />
-      <PageBody className="flex flex-col gap-3">
+      <PageBody className="flex max-w-[880px] flex-col gap-3">
         {!profile ? (
           <EmptyState title="No profile yet" body="Add a profile to start building its memories." />
         ) : !hasAny ? (

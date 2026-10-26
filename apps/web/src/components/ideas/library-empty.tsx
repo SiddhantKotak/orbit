@@ -23,7 +23,7 @@ export function LibraryEmpty({
 }) {
   const id = `library-${title.replace(/\W+/g, "-").toLowerCase()}`;
   return (
-    <div className="flex w-full max-w-[1180px] flex-col gap-4 px-5 pb-16 pt-8 md:px-7 md:pt-6">
+    <div className="flex w-full flex-col gap-4 px-5 pb-16 pt-8 md:px-7 md:pt-6">
       <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
         <h1 className="type-page-title text-[34px] text-text focus-visible:outline-none">{title}</h1>
         <p className="max-w-[64ch] text-[14px] text-text-2">{description}</p>

@@ -64,7 +64,7 @@ export function AnalyticsOffline({ byRange, streak }: { byRange: Record<Range, L
           )}
         </section>
 
-        <div className="flex min-w-[min(280px,100%)] flex-[1_1_360px] min-[1100px]:flex-[0_1_360px] flex-col gap-3">
+        <div className="flex min-w-[min(280px,100%)] flex-[1_1_360px] min-[1100px]:flex-[0_0_clamp(360px,24vw,440px)] flex-col gap-3">
           <section
             aria-labelledby="connect-h"
             className="orbit-panel flex flex-1 flex-col items-start gap-4 !rounded-[20px] !border-[var(--accent-wash-line)] p-5"

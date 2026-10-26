@@ -16,7 +16,7 @@ const fullDate = (iso: string, timeZone: string) =>
 export function List({ posts, now, timeZone, filtered }: { posts: PostRow[]; now: Date; timeZone: string; filtered: boolean }) {
   return (
     <div className="px-5 pb-16 pt-1 md:px-8">
-      <section aria-labelledby="list-heading" className="orbit-panel orbit-rise overflow-hidden p-0" style={{ maxWidth: 1120 }}>
+      <section aria-labelledby="list-heading" className="orbit-panel orbit-rise overflow-hidden p-0">
         <h2 id="list-heading" className="sr-only">
           All posts
         </h2>

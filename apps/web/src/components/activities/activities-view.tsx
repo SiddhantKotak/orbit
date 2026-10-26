@@ -41,7 +41,7 @@ export type ActivitiesProps = {
 /** Activities (screens.md B8): three summary panels, the week strip, getting started and today's routine. */
 export function ActivitiesView(props: ActivitiesProps) {
   return (
-    <div className="flex w-full max-w-[1240px] flex-col gap-4 px-5 pb-16 pt-8 md:px-8 md:pt-[28px]">
+    <div className="flex w-full flex-col gap-4 px-5 pb-16 pt-8 md:px-8 md:pt-[28px]">
       <header className="orbit-rise flex flex-wrap items-end justify-between gap-4">
         <h1 className="type-page-title text-text focus-visible:outline-none">Activities</h1>
         <Button aria-disabled="true" aria-describedby="add-activity-note" onClick={(e) => e.preventDefault()}>
