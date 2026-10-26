@@ -68,6 +68,11 @@ const isHeading = (line: string) => /^\s{0,3}#{1,6}\s/.test(line);
 const BAN_LISTS = /\b(?:no|never(?:\s+use)?|don'?t(?:\s+use)?|do not(?:\s+use)?|avoid|without)\s+(?:any\s+)?(?:(?:bullet(?:ed)?|numbered)(?:\s+(?:points?|lists?|items?))?|bullets?|lists?)\b/i;
 const LIST_QUALIFIER = /\bmore than\b|\bat most\b|\bup to\b|\bmax(?:imum)?\b|\blong\b|\btoo many\b|\bin (?:the )?(?:bullet|lists?)|dash|emoji/i;
 
+/** A ban on lists in any clause of the line that has no qualifier of its own ("No bullet lists, no emoji"). */
+function bansLists(line: string): boolean {
+  return line.split(/[,;]|\band\b/i).some((clause) => BAN_LISTS.test(clause) && !LIST_QUALIFIER.test(clause));
+}
+
 /** Which rules one line of the user's writing rules states. Deterministic and case-insensitive. */
 function rulesInLine(raw: string): { rule: keyof HardRules; value?: unknown }[] {
   const line = stripMarker(raw);
@@ -85,7 +90,7 @@ function rulesInLine(raw: string): { rule: keyof HardRules; value?: unknown }[] 
   else if (/\bamerican (?:english|spelling)\b|\bus english\b|\ben-us\b/i.test(line)) out.push({ rule: "spelling", value: "en-US" });
   if (neg && /rhetorical/i.test(line)) out.push({ rule: "forbidRhetoricalOpening" });
   if (neg && /\b(?:links?|urls?)\b/i.test(line) && !/\bsources?\b/i.test(line)) out.push({ rule: "forbidLinks" });
-  if (BAN_LISTS.test(line) && !LIST_QUALIFIER.test(line)) out.push({ rule: "forbidLists" });
+  if (bansLists(line)) out.push({ rule: "forbidLists" });
   if (!neg && /sources?\s+line|cite\s+(?:your\s+)?sources|include\s+sources/i.test(line)) out.push({ rule: "sourcesInPost" });
   return out;
 }

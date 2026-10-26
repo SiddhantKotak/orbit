@@ -10,7 +10,7 @@ export { bannedMatches, bannedWordsFromRules };
 
 export const CHECK_IDS = ["length", "hook-length", "hashtags", "banned-words", "placeholders", "markdown", "links", "emoji"] as const;
 /** Ids the writing checks add (Task W2); the ones already in CHECK_IDS (emoji, hashtags, links, hook-length) are merged into those results. */
-export const WRITING_CHECK_IDS = ["dashes", "postscript", "rhetorical-opening", "block-lines", "list-adjacency", "number-provenance", "date-provenance", "first-person"] as const;
+export const WRITING_CHECK_IDS = ["dashes", "postscript", "rhetorical-opening", "block-lines", "list-adjacency", "number-provenance", "date-provenance", "first-person", "ai-tells"] as const;
 export type CheckId = (typeof CHECK_IDS)[number] | (typeof WRITING_CHECK_IDS)[number];
 export type CheckResult = { id: CheckId; passed: boolean; detail: string };
 

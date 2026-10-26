@@ -3,14 +3,14 @@
  * Hard violations must be fixed (the polish pass does it, Task W6); target ones are fixed if cheap and reported; advice is
  * only reported. Pure: no database, no model.
  */
-import { bannedMatches, MARKDOWN, PLACEHOLDER } from "./patterns";
+import { aiTells, bannedMatches, MARKDOWN, PLACEHOLDER } from "./patterns";
 import { extractNumbers, isListLine, measurePost, splitBlocks, type PostMetrics } from "./measure";
 import type { EffectiveRules, PostType } from "./rules";
 
 export type LintId =
   | "emoji" | "dashes" | "hashtags" | "postscript" | "links" | "banned-phrase" | "rhetorical-opening"
   | "block-lines" | "hook-length" | "fold" | "one-line-blocks" | "list-adjacency" | "post-length" | "list-expected" | "lists"
-  | "number-provenance" | "date-provenance" | "first-person" | "placeholders" | "markdown";
+  | "not-just" | "triad" | "filler" | "overused" | "uniform-rhythm" | "number-provenance" | "date-provenance" | "first-person" | "placeholders" | "markdown";
 
 export type Violation = { id: LintId; level: "hard" | "target" | "advice"; detail: string; block: number | null };
 
@@ -106,6 +106,9 @@ export function lintPost(text: string, rules: EffectiveRules, ctx: LintContext):
     if (ctx.expectList) add("list-expected", "target", "The chosen format has a list, and the post has none");
     else if (ctx.postType === "framework" || ctx.postType === "how-to") add("list-expected", "advice", "A framework or how-to post reads best with a list");
   }
+
+  // AI tells: target only, so the repair pass fixes them but they never block saving. Dashes stay a hard-rule check above.
+  for (const t of aiTells(text)) add(t.id, "target", t.detail);
 
   // Provenance.
   if (ctx.groundingText !== null) {

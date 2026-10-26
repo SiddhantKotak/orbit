@@ -99,3 +99,34 @@ describe("lintPost", () => {
     expect(v.filter((x) => x.level === "hard")).toEqual([]);
   });
 });
+
+describe("AI tells", () => {
+  const tells = (text: string) => ids(text).filter((v) => ["not-just", "triad", "filler", "overused", "uniform-rhythm"].includes(v.id));
+  const has = (text: string, id: string) => tells(text).some((v) => v.id === id);
+
+  it("flags overused words and stock phrases as target", () => {
+    const v = tells("Let's dive in.\n\nWe leverage a seamless, robust stack.");
+    expect(v.map((x) => x.id).sort()).toEqual(["filler", "overused"]);
+    expect(v.every((x) => x.level === "target")).toBe(true);
+  });
+  it("does not flag leverage as a noun or ordinary words", () => {
+    expect(tells("Debt gives you leverage in a negotiation.\n\nShip it on Monday.")).toEqual([]);
+  });
+  it("flags not-just-but and It's not X. It's Y.", () => {
+    expect(has("It is not just a tool, but a habit.", "not-just")).toBe(true);
+    expect(has("It's not a tool. It's a habit.", "not-just")).toBe(true);
+    expect(has("We are not only on Mondays open.\n\nCome by.", "not-just")).toBe(false);
+    expect(has("I did not only ship it. I shipped it twice.", "not-just")).toBe(false);
+  });
+  it("flags triads only when two sentences have one", () => {
+    expect(has("We cut cost, time, and risk.\n\nIt scales up, out, and down.", "triad")).toBe(true);
+    expect(has("We cut cost, time, and risk.\n\nIt works.", "triad")).toBe(false);
+  });
+  it("flags uniform sentence length only from six sentences", () => {
+    const flat = "We shipped the new app. It runs on every phone. Users like the new look. Sales grew a little bit. We plan more changes. The team feels very proud.";
+    expect(has(flat, "uniform-rhythm")).toBe(true);
+    expect(has(flat.split(". ").slice(0, 4).join(". ") + ".", "uniform-rhythm")).toBe(false);
+    expect(has("Short. We shipped the new app to every single phone this week without a single crash. Done. It works. Sales doubled after the launch event, which surprised us all, even the cynics. Wow.", "uniform-rhythm")).toBe(false);
+  });
+});
+

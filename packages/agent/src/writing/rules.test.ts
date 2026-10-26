@@ -45,6 +45,11 @@ describe("compileHardRules", () => {
     },
   );
 
+  it("reads a ban on lists even when the line also mentions emoji", () => {
+    expect(compileHardRules("- No bullet lists, no emoji").matched.map((m) => m.rule)).toContain("forbidLists");
+    expect(compileHardRules("- Don't use em dashes in bullet points").matched.map((m) => m.rule)).not.toContain("forbidLists");
+  });
+
   it("reads the numbers and values", () => {
     const { rules } = compileHardRules("- No walls of text (>3 lines)\n- British spelling\n## Banned words\n- synergy, leverage");
     expect(rules.maxBlockLines).toBe(3);
