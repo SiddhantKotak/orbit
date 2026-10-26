@@ -158,14 +158,15 @@ export async function learnFromEdit(ai: AiClient, input: LearnInput): Promise<Le
       const fresh = proposedList.filter((r) => !have(before, r) && !have(out, r));
       const verdict = learningGuard(addedText, fresh);
       for (const r of verdict.allowed) {
-        if (newCount >= MAX_NEW || !describesWriting(r, source)) continue;
+        // A full list never loses an existing rule to make room: the excess new rule is dropped instead.
+        if (newCount >= MAX_NEW || out.length >= MAX_PER_AREA || !describesWriting(r, source)) continue;
         if (suppressed.some((x) => similarRule(x, r))) continue;
         if (old[area][other].some((x) => similarRule(x, r))) continue;
         if (side === "do" && input.hardRules && conflictWith(r, input.hardRules)) continue;
         out.push(r.trim());
         newCount++;
       }
-      next[side] = out.slice(-MAX_PER_AREA);
+      next[side] = out;
     }
     rules[area] = next;
   }

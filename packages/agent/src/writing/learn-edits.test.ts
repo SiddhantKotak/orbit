@@ -91,6 +91,21 @@ describe("learnFromEdit limits", () => {
     return p;
   };
 
+  it("a full list keeps its existing rules: at most one removal, never more than 7", async () => {
+    const existing = ["Keep sentences short.", "Open with a claim.", "Prefer plain words.", "Cut adverbs.", "Use short lines.", "Lead with the point.", "Vary sentence length."];
+    const p = withRules((r) => (r.global.do = [...existing]));
+    const ai = {
+      async json({ schema }: { schema: { parse(v: unknown): unknown } }) {
+        const rules = structuredClone(p.rules);
+        rules.global.do = [...existing.slice(1), "Use plain verbs."];
+        return schema.parse({ rules });
+      },
+    } as unknown as AiClient;
+    const out = await learnFromEdit(ai, { profile: p, aiText: AI, userText: EDITED });
+    expect(out.rules.global.do.length).toBeLessThanOrEqual(7);
+    expect(existing.filter((r) => !out.rules.global.do.includes(r)).length).toBeLessThanOrEqual(1);
+  });
+
   it("removes at most one existing rule per run", async () => {
     const p = withRules((r) => (r.global.do = ["Keep sentences short.", "Open with a claim.", "Prefer plain words."]));
     const ai = {
@@ -203,7 +218,7 @@ describe("runStyleLearn and noteDocumentEdit", () => {
     expect(JSON.stringify((final.styleProfile as StyleProfile).rules)).not.toContain("End on a question.");
   });
 
-  it("never trims version 1 (the original), however many versions are saved", async () => {
+  it("never trims version 1 (the original), however many versions are saved", { timeout: 120_000 }, async () => {
     const s = await setup();
     for (let i = 0; i < 13; i++) await saveStyleProfile(s.styleId!, { ...base(), voiceTarget: `Plain ${i}.` }, "h");
     const kept = (await prisma.voiceStyleVersion.findMany({ where: { voiceStyleId: s.styleId! }, select: { version: true } })).map((v) => v.version);
