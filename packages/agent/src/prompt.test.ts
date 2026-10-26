@@ -20,6 +20,9 @@ const input = (over: Partial<PromptInput> = {}): PromptInput => ({ ...base, ...o
 describe("buildSystemPrompt", () => {
   it("states the angles-first policy and the picked-angle block", () => {
     expect(STATIC_PREFIX).toContain("Angles first");
+    expect(STATIC_PREFIX).toContain("BARE topic");
+    expect(STATIC_PREFIX).toContain("Write directly, with no picker");
+    expect(STATIC_PREFIX).toContain("the difference between X and Y");
     expect(STATIC_PREFIX).toContain("presentOptions");
     expect(STATIC_PREFIX).toContain("Here's your first draft. What would you like to improve?");
     const s = buildSystemPrompt(input({ pickedAngle: { question: "Which angle?", label: "The myth", brief: "Argue the myth.", category: null } }));
