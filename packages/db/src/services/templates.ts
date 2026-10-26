@@ -14,14 +14,24 @@ export type SeedTemplate = {
   tags: string[];
 };
 
-export type TemplateQuery = { type?: TemplateType; category?: string; search?: string; savedBy?: string; offset?: number; limit?: number };
+export type TemplateQuery = {
+  type?: TemplateType;
+  category?: string;
+  search?: string;
+  savedBy?: string;
+  /** Only the shipped templates and this profile's own (other profiles' templates never show). */
+  ownerProfileId?: string;
+  offset?: number;
+  limit?: number;
+};
 
-export async function listTemplates(q: TemplateQuery): Promise<{ items: TemplateRow[]; total: number }> {
+export async function listTemplates(q: TemplateQuery): Promise<{ items: (TemplateRow & { saved: boolean })[]; total: number }> {
   const search = q.search?.trim();
   const where: Prisma.TemplateWhereInput = {
     ...(q.type ? { type: q.type } : {}),
     ...(q.category ? { category: q.category } : {}),
     ...(q.savedBy ? { saves: { some: { profileId: q.savedBy } } } : {}),
+    ...(q.ownerProfileId ? { AND: [{ OR: [{ system: true }, { profileId: q.ownerProfileId }] }] } : {}),
     ...(search
       ? {
           OR: [
@@ -33,10 +43,18 @@ export async function listTemplates(q: TemplateQuery): Promise<{ items: Template
         }
       : {}),
   };
-  const [items, total] = await Promise.all([
-    prisma.template.findMany({ where, orderBy: [{ category: "asc" }, { title: "asc" }, { id: "asc" }], skip: q.offset ?? 0, take: q.limit ?? 50 }),
+  const viewer = q.ownerProfileId ?? q.savedBy;
+  const [rows, total] = await Promise.all([
+    prisma.template.findMany({
+      where,
+      orderBy: [{ category: "asc" }, { title: "asc" }, { id: "asc" }],
+      skip: q.offset ?? 0,
+      take: q.limit ?? 50,
+      include: { saves: viewer ? { where: { profileId: viewer }, select: { profileId: true } } : false },
+    }),
     prisma.template.count({ where }),
   ]);
+  const items = rows.map(({ saves, ...t }) => ({ ...t, saved: Array.isArray(saves) && saves.length > 0 }));
   return { items, total };
 }
 

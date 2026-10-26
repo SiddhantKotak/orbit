@@ -88,6 +88,7 @@ export function ChatView({
   voices,
   selectedVoiceId,
   initialText,
+  initialFormat = null,
   fromRect,
   onFirstFinish,
   initialDocument = null,
@@ -99,6 +100,8 @@ export function ChatView({
   selectedVoiceId: string | null;
   /** Sent once on mount (the chat started on the home composer). */
   initialText?: string;
+  /** A template pinned on the Templates page: it shapes the first post of this chat, however many messages come first. */
+  initialFormat?: { slug: string; title: string } | null;
   fromRect?: ComposerRect | null;
   onFirstFinish?: () => void;
   /** The chat's post, loaded with the page. */
@@ -108,7 +111,10 @@ export function ChatView({
   const [knowledge, setKnowledge] = useState<KnowledgeChoice[]>([]);
   const [webSearch, setWebSearch] = useState(true);
   const aiModel = useAiModel();
-  const [formatId, setFormatId] = useState<string | null>(null);
+  const [formatId, setFormatId] = useState<string | null>(initialFormat?.slug ?? null);
+  const [formatName, setFormatName] = useState<string | null>(initialFormat?.title ?? null);
+  // A pinned template stays on until the post exists: the angle question and its answer come before the draft.
+  const stickyPin = useRef<string | null>(initialFormat?.slug ?? null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialIds = useMemo(() => new Set(initialMessages.map((m) => m.id)), [initialMessages]);
 
@@ -142,10 +148,11 @@ export function ChatView({
     // Deferred: a StrictMode remount stops the chat once right after mount, which would abort this send.
     const timer = setTimeout(() => {
       sent.current = true;
-      void send(initialText);
+      void send(initialText, { formatId: initialFormat?.slug ?? null });
       inputRef.current?.focus({ preventScroll: true });
     }, 0);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialText, send]);
 
   // The thread follows the newest words unless the reader has scrolled up; then a "Jump to latest" pill shows.
@@ -213,7 +220,7 @@ export function ChatView({
     jumpToLatest();
     // A picked format applies to this one message: it rides in the request body and the chip clears.
     void send(text, { formatId });
-    setFormatId(null);
+    if (!stickyPin.current || formatId !== stickyPin.current) setFormatId(null);
   }
 
   function quickLink(key: string, prompt: string) {
@@ -240,7 +247,7 @@ export function ChatView({
       return;
     }
     jumpToLatest();
-    void sendOptionPick(option.label, { pickerToolCallId: pickerShown.pickerToolCallId, optionId });
+    void sendOptionPick(option.label, { pickerToolCallId: pickerShown.pickerToolCallId, optionId }, { formatId: stickyPin.current && formatId === stickyPin.current ? formatId : null });
   }
 
   /** "Use this hook": with a post open the opening is swapped and saved as a new version; otherwise a draft starts from it. */
@@ -264,6 +271,23 @@ export function ChatView({
 
   const live = liveStatus(messages, status, initialIds);
   const hasPost = Boolean(post.state.doc && post.state.doc.version > 0);
+  useEffect(() => {
+    if (!hasPost || !stickyPin.current) return;
+    const pinned = stickyPin.current;
+    stickyPin.current = null;
+    setFormatId((f) => (f === pinned ? null : f));
+  }, [hasPost]);
+
+  /** Swap on the draft card: ask for the open post to be restructured with the chosen template (the edit flow does the rest). */
+  function swapTemplate(t: { slug: string; title: string }) {
+    if (busy) return;
+    if (post.saving) {
+      toast(SAVING_FIRST);
+      return;
+    }
+    jumpToLatest();
+    void send(`Restructure this post with the \u201c${t.title}\u201d template.`, { formatId: t.slug });
+  }
   const panelShown = post.state.open && desktop;
 
   const lastAt = messages.at(-1)?.metadata?.createdAt;
@@ -320,6 +344,7 @@ export function ChatView({
               onRetry={canRetry ? () => void retry() : undefined}
               notice={notice}
               followUps={hasPost ? <QuickLinkChips onPick={quickLink} disabled={busy} /> : undefined}
+              onSwapTemplate={swapTemplate}
             />
             </div>
           </div>
@@ -367,7 +392,8 @@ export function ChatView({
             webSearch={webSearch}
             onWebSearchChange={setWebSearch}
             formatId={formatId}
-            onFormatChange={setFormatId}
+            onFormatChange={(id) => (setFormatId(id), setFormatName(null))}
+            formatName={formatName}
             fromRect={fromRect}
             inputRef={inputRef}
             model={{ current: aiModel.current, info: aiModel.info, onChoose: (id) => void aiModel.choose(id) }}

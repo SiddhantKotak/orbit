@@ -9,7 +9,7 @@ import type { ComposerRect } from "./chat-composer";
 const loadChatView = () => import("./chat-view").then((m) => m.ChatView);
 const ChatView = dynamic(loadChatView);
 
-type Started = { id: string; text: string; from: ComposerRect | null };
+type Started = { id: string; text: string; from: ComposerRect | null; template: { slug: string; title: string } | null };
 
 /**
  * The home screen: the landing composer until the first send, then the chat itself, in place. The docked
@@ -52,11 +52,12 @@ export function HomeChat(props: Omit<ComponentProps<typeof Composer>, "onSend">)
     }
   }, [pathname]);
 
-  function onSend(text: string) {
+  function onSend(text: string, template: { slug: string; title: string } | null) {
     const box = document.getElementById("composer")?.closest("form")?.getBoundingClientRect();
     setStarted({
       id: crypto.randomUUID(),
       text,
+      template,
       from: box ? { top: box.top, left: box.left, width: box.width, height: box.height } : null,
     });
   }
@@ -90,6 +91,7 @@ export function HomeChat(props: Omit<ComponentProps<typeof Composer>, "onSend">)
       voices={props.voices}
       selectedVoiceId={props.selectedVoiceId}
       initialText={started.text}
+      initialFormat={started.template}
       fromRect={started.from}
       onFirstFinish={() => onFirstFinish(started.id)}
     />

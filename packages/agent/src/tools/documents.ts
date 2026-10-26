@@ -6,6 +6,7 @@ import {
   DocumentVersionConflict,
   getChatDocument,
   getDocument,
+  getTemplateBySlug,
   listDocumentVersions,
   switchDocumentVersion,
   saveDocumentVersion,
@@ -39,8 +40,10 @@ export const NO_POST = "Failed: there's no post in this chat yet. Draft one with
 export const DELTA_CHARS = 40;
 
 export type CreateDocumentInput = { title: string; kind: "text"; specialistHandoffToolCallId: string };
+/** The template a post was shaped by, as the draft card shows it (never the skeleton or any brief). */
+export type UsedTemplate = { slug: string; title: string; category: string };
 export type CreateDocumentOutput =
-  | { id: string; title: string; kind: "text"; success: true; postContent: string }
+  | { id: string; title: string; kind: "text"; success: true; postContent: string; template?: UsedTemplate }
   | { status: "needs-user-input"; missingInput: string[] }
   | { error: string };
 
@@ -112,7 +115,7 @@ export async function createDocumentFromHandoff(ctx: TurnContext, input: CreateD
   }
   write({ type: "data-document", id: doc.id, data: documentData(doc) });
   write({ type: "data-creating", data: false, transient: true });
-  return { id: doc.id, title: doc.title, kind: "text", success: true, postContent: doc.text };
+  return { id: doc.id, title: doc.title, kind: "text", success: true, postContent: doc.text, ...(used ? { template: { slug: used.slug, title: used.title, category: used.category } } : {}) };
 }
 
 /** Errors and questions as they are; the created post's text framed as the specialist's data. */
@@ -173,7 +176,7 @@ export type UpdateDocumentInput = {
   restoreVersion: number | null;
 };
 export type UpdateDocumentOutput =
-  | { id: string; title: string; version: number; success: true; contentChanged: boolean; changeSummary: string }
+  | { id: string; title: string; version: number; success: true; contentChanged: boolean; changeSummary: string; template?: UsedTemplate }
   | string;
 
 const unchanged = (doc: DocumentSnapshot, changeSummary: string): UpdateDocumentOutput => ({
@@ -184,6 +187,14 @@ const unchanged = (doc: DocumentSnapshot, changeSummary: string): UpdateDocument
   contentChanged: false,
   changeSummary,
 });
+
+/** The template the user picked for this message, when it is one of theirs to use (a shipped one or their own). */
+async function ownTemplate(ctx: TurnContext) {
+  const slug = ctx.selections.formatId;
+  if (!slug) return null;
+  const t = await getTemplateBySlug(slug).catch(() => null);
+  return t && (t.system || t.profileId === ctx.profileId) ? t : null;
+}
 
 /**
  * updateDocument (design §6.4): a semantic edit of the chat's post, or a restore of an older version. It reads the
@@ -215,11 +226,13 @@ export async function updateDocumentRun(ctx: TurnContext, input: UpdateDocumentI
       writingStyleId: ctx.selections.writingStyleId,
       embedder: ctx.embedder,
     });
+    // A template picked for this message (the draft card's Swap) restructures the whole post around its skeleton.
+    const swapTo = await ownTemplate(ctx);
     const res = await editDocumentText(ctx.ai, {
       document: doc,
-      description: input.description,
+      description: swapTo ? `${input.description}\n\nRestructure the post to follow the "${swapTo.title}" template, keeping its facts and the user's voice. Skeleton (fill each slot from the post's own material; drop a slot the post has no material for):\n${swapTo.skeleton}` : input.description,
       editRequirements: input.editRequirements,
-      editScope: input.editScope,
+      editScope: swapTo ? "whole-document" : input.editScope,
       grounding: renderGrounding(grounding),
       abortSignal,
     });
@@ -256,7 +269,20 @@ export async function updateDocumentRun(ctx: TurnContext, input: UpdateDocumentI
       expectedVersion: doc.version,
     });
     publish(ctx, saved);
-    return { id: saved.id, title: saved.title, version: saved.version, success: true, contentChanged: true, changeSummary: res.changeSummary };
+    if (swapTo) {
+      await recordTemplateUse({ profileId: ctx.profileId, templateId: swapTo.id, documentId: saved.id, source: "picked" }).catch((err) =>
+        console.error(`[agent] recording template use failed: ${err instanceof Error ? err.message : String(err)}`),
+      );
+    }
+    return {
+      id: saved.id,
+      title: saved.title,
+      version: saved.version,
+      success: true,
+      contentChanged: true,
+      changeSummary: res.changeSummary,
+      ...(swapTo ? { template: { slug: swapTo.slug, title: swapTo.title, category: swapTo.category } } : {}),
+    };
   } catch (err) {
     if (isAbort(err)) throw err;
     if (err instanceof DocumentVersionConflict) return staleDocument(err.currentVersion);

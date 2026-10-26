@@ -49,6 +49,7 @@ export function ChatComposer({
   onWebSearchChange,
   formatId = null,
   onFormatChange,
+  formatName = null,
   fromRect,
   inputRef,
   model,
@@ -68,6 +69,8 @@ export function ChatComposer({
   /** The framework or template picked for the next message (Task W8); omit to hide the Format menu. */
   formatId?: string | null;
   onFormatChange?: (id: string | null) => void;
+  /** The picked format's name when the menu has not loaded it (a template pinned from the Templates page). */
+  formatName?: string | null;
   fromRect?: ComposerRect | null;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   model?: { current: string | null; info: AiModelInfo | null; onChoose: (id: string) => void };
@@ -133,7 +136,7 @@ export function ChatComposer({
             </Button>
             <VoicePicker voices={voices} selectedId={selectedVoiceId} />
             {model && <ModelPicker current={model.current} info={model.info} onChoose={model.onChoose} />}
-            {onFormatChange && <FormatMenu value={formatId} onChange={onFormatChange} disabled={busy} />}
+            {onFormatChange && <FormatMenu value={formatId} onChange={onFormatChange} disabled={busy} valueName={formatName} />}
           </div>
           {busy ? (
             <button

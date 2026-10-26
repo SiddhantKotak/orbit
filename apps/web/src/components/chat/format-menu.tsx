@@ -20,7 +20,7 @@ const toOption = (t: ApiTemplate): Option => ({ id: t.slug, name: t.title, hint:
  * The composer's Format menu (design §5): "Let Orbit choose" (the default), the six structures, and the templates grouped
  * by category, with search. The pick shows as a removable chip and applies to the next message only.
  */
-export function FormatMenu({ value, onChange, disabled }: { value: string | null; onChange: (id: string | null) => void; disabled?: boolean }) {
+export function FormatMenu({ value, onChange, disabled, valueName }: { value: string | null; onChange: (id: string | null) => void; disabled?: boolean; valueName?: string | null }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const listId = useId();
@@ -63,7 +63,7 @@ export function FormatMenu({ value, onChange, disabled }: { value: string | null
     return [...fixed, ...templates];
   }, [q, templates]);
   const groups = [...new Set(shown.map((o) => o.group))];
-  const name = value === null ? null : (FRAMEWORKS.find((f) => f.id === value)?.name ?? known[value] ?? null);
+  const name = value === null ? null : (FRAMEWORKS.find((f) => f.id === value)?.name ?? known[value] ?? valueName ?? null);
 
   return (
     <>

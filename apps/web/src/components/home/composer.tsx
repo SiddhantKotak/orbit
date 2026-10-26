@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ComposerShell, pillClass, cn } from "@brandloop/ui";
-import { MicIcon, PlusIcon, SendIcon } from "@brandloop/ui/icons";
+import { CloseIcon, MicIcon, PlusIcon, SendIcon } from "@brandloop/ui/icons";
 import type { Greeting as GreetingText } from "@/lib/greeting";
 import { Notifications } from "@/components/shell/notifications";
 import { TopBar } from "@/components/shell/top-bar";
@@ -38,6 +38,7 @@ export function Composer({
   selectedVoiceId,
   onSend,
   initialText,
+  pinnedTemplate,
 }: {
   greeting: GreetingText;
   /** The home cards, rendered on the server (real data or honest empty states). */
@@ -45,11 +46,14 @@ export function Composer({
   voices: VoiceOption[];
   selectedVoiceId: string | null;
   /** Starts the chat with this text. Without it the composer only says chat isn't connected. */
-  onSend?: (text: string) => void;
+  onSend?: (text: string, template: { slug: string; title: string } | null) => void;
   /** Pre-fills the box (home's `?prompt=`); never sent on its own. */
   initialText?: string;
+  /** A template chosen on the Templates page: the first post is written with it, until the chip is removed. */
+  pinnedTemplate?: { slug: string; title: string } | null;
 }) {
   const [text, setText] = useState(initialText ?? "");
+  const [pin, setPin] = useState(pinnedTemplate ?? null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // A pre-filled prompt ends mid-sentence ("It's about "): put the caret there, after the shell's route focus.
@@ -76,7 +80,7 @@ export function Composer({
     e?.preventDefault();
     if (!text.trim()) return;
     if (onSend) {
-      onSend(text.trim());
+      onSend(text.trim(), pin);
       return;
     }
     toast("Chat isn't connected yet", { description: "Writing with AI arrives in the next build." });
@@ -114,6 +118,18 @@ export function Composer({
                   <PlusIcon size={18} />
                 </button>
                 <VoicePicker voices={voices} selectedId={selectedVoiceId} />
+                {pin && (
+                  <button
+                    type="button"
+                    data-format-chip
+                    aria-label={`Remove template: ${pin.title}`}
+                    onClick={() => setPin(null)}
+                    className="orbit-transition inline-flex h-[var(--composer-control)] max-w-[200px] items-center gap-1.5 rounded-pill border border-line-control pl-3.5 pr-3 text-[13px] font-medium text-text hover:border-text-3"
+                  >
+                    <span className="truncate">{pin.title}</span>
+                    <CloseIcon size={12} aria-hidden="true" />
+                  </button>
+                )}
                 <button type="button" aria-label="Dictate" disabled className={iconButton}>
                   <MicIcon size={18} />
                 </button>

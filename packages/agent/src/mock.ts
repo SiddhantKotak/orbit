@@ -232,6 +232,9 @@ function route(opts: CallOptions): ScriptStep {
   if (firstLine && /\bpunchier\b/i.test(text)) {
     return call("proposeDocumentEdits", { instruction: text.slice(0, 1_000), targetText: firstLine });
   }
+  if (firstLine && /\brestructure this post\b/i.test(text)) {
+    return call("updateDocument", { description: text.slice(0, 2_000), editRequirements: ["Follow the chosen template"], editScope: "whole-document", restoreVersion: null });
+  }
   if (firstLine && /\bshorter\b/i.test(text)) {
     return call("updateDocument", {
       description: text.slice(0, 2_000),

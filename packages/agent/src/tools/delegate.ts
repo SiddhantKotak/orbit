@@ -127,7 +127,7 @@ export async function delegateWritingRun(
     // Only a template the user picked can be missing its inputs here (an auto-pick is gated); then the writer asks instead of drafting.
     const missing = pinnedTemplate ? missingNeeds(pinnedTemplate.needs, evidence) : [];
     const request = briefFor(input, personal, accepted, missing);
-    if (template) ctx.templateChoices = (ctx.templateChoices ?? new Map()).set(toolCallId, { templateId: template.id, source: pinnedTemplate ? "picked" : "auto" });
+    if (template) ctx.templateChoices = (ctx.templateChoices ?? new Map()).set(toolCallId, { templateId: template.id, source: pinnedTemplate ? "picked" : "auto", slug: template.slug, title: template.title, category: template.category });
     // A new post: there is no open document (see the short-circuit above), so no source revision either.
     const res = await runSpecialist(ctx.ai, "post-writing", {
       request,
