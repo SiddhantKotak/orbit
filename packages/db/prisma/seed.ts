@@ -5,7 +5,7 @@ import { PRESET_PROFILE_VERSION, PRESET_VOICES } from "./presets";
 type Db = Pick<typeof defaultPrisma, "voiceStyle">;
 
 /**
- * Idempotent: creates the nine preset writing styles by slug, and rewrites one only when its stored profile version is
+ * Idempotent: creates the ten preset writing styles by slug, and rewrites one only when its stored profile version is
  * lower than PRESET_PROFILE_VERSION (so an edit made in the database is not overwritten by every deploy).
  */
 export async function seedPresets(db: Db): Promise<void> {

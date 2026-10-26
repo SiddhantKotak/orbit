@@ -8,8 +8,8 @@ describe("style summary", () => {
   });
 
   it("says no lists for a style without any", () => {
-    const priya = PRESET_VOICES.find((p) => p.slug === "priya-lindqvist")!;
-    expect(layoutLine(priya.profile.layout)).toContain("no lists");
+    const none = { ...PRESET_VOICES[0]!.profile.layout, listPosts: { bullet: 0, numbered: 0 } };
+    expect(layoutLine(none)).toContain("no lists");
   });
 
   it("picks the reference post nearest the typical length", () => {
