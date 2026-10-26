@@ -376,3 +376,20 @@ export async function linkChatToDocument(
 }
 
 export type { VersionSource };
+
+/**
+ * What style learning compares: the newest AI-written version of the post and the version that is current now.
+ * Null when the post isn't the profile's or has no AI version. `createdAt` is when the current version was saved.
+ */
+export async function getEditPair(
+  profileId: string,
+  id: string,
+): Promise<{ aiText: string; userText: string; currentSource: VersionSource; currentAt: Date } | null> {
+  const doc = await prisma.document.findFirst({ where: { id, profileId, deletedAt: null }, select: { version: true } });
+  if (!doc) return null;
+  const [current, ai] = await Promise.all([
+    prisma.documentVersion.findUnique({ where: { documentId_version: { documentId: id, version: doc.version } } }),
+    prisma.documentVersion.findFirst({ where: { documentId: id, source: { in: ["AI_CREATE", "AI_EDIT", "PROPOSAL"] } }, orderBy: { version: "desc" } }),
+  ]);
+  return current && ai ? { aiText: ai.text, userText: current.text, currentSource: current.source, currentAt: current.createdAt } : null;
+}

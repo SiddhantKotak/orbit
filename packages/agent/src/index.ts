@@ -80,3 +80,4 @@ export { visualTools, suggestVisualsRun, ConceptSchema, VISUAL_TYPES, VISUAL_ASP
 export type { SuggestVisualsOutput, ProposeVisualOutput, EditVisualOutput, VisualConcept } from "./tools/visuals";
 
 export { policyScreen, screenInput, screenOutput, SAFETY_RULES, type ChatSafety, type Screen } from "./safety";
+export { editDelta, learnFromEdit, noteDocumentEdit, runStyleLearn, LEARN_DELAY_MS, LEARN_MIN_RATIO, LEARN_WINDOW_MS, type EditDelta, type LearnResult, type LearnOutcome } from "./writing/learn-edits";

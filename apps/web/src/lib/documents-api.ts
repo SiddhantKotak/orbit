@@ -12,6 +12,7 @@ import {
 import { applyProposal, ProposalError } from "@brandloop/agent";
 import { z } from "zod";
 import { getAccount } from "@/lib/account";
+import { afterUserEdit } from "@/lib/jobs";
 
 /**
  * Handlers behind the document routes (design §5). Every read and write is scoped to the signed-in user's
@@ -84,6 +85,7 @@ export async function patchDocumentHandler(request: Request, { params }: Ctx): P
   }
   try {
     const doc = await saveDocumentVersion(profileId, (await params).id, { ...parsed.data, source: "USER_EDIT" });
+    await afterUserEdit(profileId, doc.id);
     return Response.json({ version: doc.version });
   } catch (err) {
     return fromError(err);

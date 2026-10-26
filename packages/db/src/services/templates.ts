@@ -56,6 +56,12 @@ export async function recordTemplateUse(input: { profileId: string; templateId: 
   await prisma.templateUse.create({ data: input });
 }
 
+/** Stores how much the writer rewrote the draft on the document's newest template use (a no-op when it has none). */
+export async function setTemplateUseEditRatio(profileId: string, documentId: string, editRatio: number): Promise<void> {
+  const use = await prisma.templateUse.findFirst({ where: { profileId, documentId }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  if (use) await prisma.templateUse.update({ where: { id: use.id }, data: { editRatio: Math.min(1, Math.max(0, editRatio)) } });
+}
+
 export function recentTemplateUses(profileId: string, limit: number): Promise<{ templateId: string; createdAt: Date }[]> {
   return prisma.templateUse.findMany({ where: { profileId }, orderBy: { createdAt: "desc" }, take: limit, select: { templateId: true, createdAt: true } });
 }

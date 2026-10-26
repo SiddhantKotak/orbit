@@ -82,3 +82,30 @@ export async function deleteOwnStyle(profileId: string, voiceStyleId: string): P
   await prisma.profile.updateMany({ where: { id: profileId, voiceStyleId }, data: { voiceStyleId: null } });
   await prisma.voiceStyle.delete({ where: { id: voiceStyleId } });
 }
+
+/** The style that edit-learning may change: the profile's own style with a valid compiled profile, else null (presets are never changed). */
+export async function getLearnTarget(profileId: string): Promise<{ style: VoiceStyle; profile: StyleProfile } | null> {
+  const p = await prisma.profile.findUnique({ where: { id: profileId }, select: { voiceStyleId: true } });
+  if (!p?.voiceStyleId) return null;
+  const style = await ownStyle(profileId, p.voiceStyleId);
+  const parsed = style ? StyleProfileSchema.safeParse(style.styleProfile) : null;
+  return style && style.status === "READY" && parsed?.success ? { style, profile: parsed.data } : null;
+}
+
+/** When the style's newest version was written, or null. */
+export async function lastStyleVersionAt(voiceStyleId: string): Promise<Date | null> {
+  const v = await prisma.voiceStyleVersion.findFirst({ where: { voiceStyleId }, orderBy: { version: "desc" }, select: { createdAt: true } });
+  return v?.createdAt ?? null;
+}
+
+/**
+ * Saves learned rules as the next version of the caller's own style. `expectedVersion` is the profileVersion the rules
+ * were derived from: if the style moved on meanwhile (a re-extraction, a revert) nothing is written. Returns the new
+ * version, or null. Every change is a version, so Revert restores the previous profile.
+ */
+export async function saveLearnedRules(profileId: string, voiceStyleId: string, expectedVersion: number, rules: StyleProfile["rules"]): Promise<{ version: number } | null> {
+  const style = await ownStyle(profileId, voiceStyleId);
+  const parsed = style ? StyleProfileSchema.safeParse(style.styleProfile) : null;
+  if (!style || !parsed?.success || style.profileVersion !== expectedVersion) return null;
+  return saveStyleProfile(voiceStyleId, { ...parsed.data, rules }, style.corpusHash ?? "");
+}

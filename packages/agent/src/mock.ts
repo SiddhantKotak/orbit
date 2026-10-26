@@ -566,6 +566,14 @@ export function scriptedAi(): AiClient {
       return "Mock chat";
     },
     async json({ schema, prompt }) {
+      // Edit-learning (writing/learn-edits.ts): keep the current rules and add one fixed habit, so offline runs make a version.
+      const current = /<current_rules>\n([\s\S]*?)\n<\/current_rules>/.exec(prompt)?.[1];
+      if (current) {
+        const rules = JSON.parse(current) as { global: { do: string[] } };
+        const habit = "Keep paragraphs short.";
+        if (!rules.global.do.includes(habit)) rules.global.do = [...rules.global.do, habit].slice(-7);
+        return schema.parse({ rules });
+      }
       const normalized = mockNormalized(prompt);
       if (normalized) {
         const parsed = schema.safeParse(normalized);

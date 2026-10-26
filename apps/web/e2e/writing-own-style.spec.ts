@@ -59,6 +59,13 @@ test("pasted posts, then a LinkedIn export, compile the own style; the knowledge
     const sheet2 = page.getByRole("dialog", { name: "Your style" });
     await expect(sheet2.locator("[data-style-layout]")).toHaveText(/Hooks ~\d+ characters/, { timeout: 30_000 });
     await expect(sheet2.locator("[data-style-reference]")).toContainText(/refund|email|meeting|invoice|apologise/);
+
+    // History: the two compiles are two versions; Revert saves the first again as the newest.
+    const history = sheet2.locator("[data-style-history]");
+    await expect(history.locator("[data-style-version]")).toHaveCount(2);
+    await history.locator('[data-style-version="1"]').getByRole("button", { name: "Revert" }).click();
+    await expect(history.locator("[data-style-version]")).toHaveCount(3);
+    await expect(history.locator('[data-style-version="3"]')).toContainText("current");
     await sheet2.getByRole("button", { name: "Close" }).click();
 
     // 3. The knowledge base says what makes drafts better.
