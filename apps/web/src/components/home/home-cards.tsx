@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/shell/intent-link";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@brandloop/ui";
 import type { LatestChat, StrategySummary } from "@/lib/home-summary";

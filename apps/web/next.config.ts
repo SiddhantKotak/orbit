@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
       ],
     ]),
   ),
+  experimental: {
+    // Production builds don't need source maps: Turbopack emits ~56 MB of server maps by default. Dev keeps them.
+    serverSourceMaps: false,
+    turbopackSourceMaps: process.env.NODE_ENV !== "production",
+  },
   turbopack: {
     rules: {
       "*.css": {

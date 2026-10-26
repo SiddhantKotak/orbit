@@ -7,7 +7,7 @@ import { Toaster } from "sonner";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/components/theme/theme-choice";
 import "./globals.css";
 
-// One variable Bricolage file serves every display step: opsz 12-96, wdth 75-100, wght 200-800 (system §4).
+// One variable Bricolage file serves every display step: opsz 12-96, wdth 75-100, wght 200-800 (system §4). Both axes are used (font-variation-settings in globals, tokens and marketing css), so none can be dropped.
 const display = Bricolage_Grotesque({ subsets: ["latin"], axes: ["opsz", "wdth"], variable: "--font-display-face", display: "swap" });
 const ui = Geist({ subsets: ["latin"], variable: "--font-ui", display: "swap" });
 

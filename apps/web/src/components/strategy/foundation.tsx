@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GOALS, type Goal } from "@brandloop/ai";
+import { GOALS } from "@brandloop/ai/constants";
+import type { Goal } from "@brandloop/ai";
 import { Segmented } from "@brandloop/ui";
 import { createDebouncer } from "./debounce";
 import { EditableText, Section, useStrategy } from "./edit";

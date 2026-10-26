@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/shell/intent-link";
 import { MenuIcon, SearchIcon } from "@brandloop/ui/icons";
 import { Logo } from "./logo";
 import { SprintPill, type SprintState } from "./sprint-card";

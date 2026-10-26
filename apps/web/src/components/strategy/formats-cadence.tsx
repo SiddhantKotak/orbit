@@ -1,6 +1,6 @@
 "use client";
 
-import { FORMATS } from "@brandloop/ai";
+import { FORMATS } from "@brandloop/ai/constants";
 import { EditableText, NumberField, Section, useStrategy } from "./edit";
 
 export function FormatsCadence() {

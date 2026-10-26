@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getChat, getChatDocument, getSelectedVoice, listMessages, listVoices } from "@brandloop/db";
 import type { ChatUIMessage } from "@brandloop/agent/client";
-import { ChatView } from "@/components/chat/chat-view";
+import { ChatViewLazy as ChatView } from "@/components/chat/chat-view-lazy";
 import { getAccount } from "@/lib/account";
 
 export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {

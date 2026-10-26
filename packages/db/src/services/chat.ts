@@ -237,6 +237,15 @@ export async function listChats(
   return { chats: rows.slice(0, limit), hasMore: rows.length > limit };
 }
 
+/** The most recently active chat (ignoring pinning), or null: the Home "continue" card needs one row, not a page. */
+export async function getLatestChat(profileId: string): Promise<ChatSummary | null> {
+  return prisma.chat.findFirst({
+    where: { profileId, deletedAt: null },
+    orderBy: [{ lastActivityAt: "desc" }, { id: "desc" }],
+    select: { id: true, title: true, pinned: true, lastActivityAt: true, documentId: true },
+  });
+}
+
 async function updateOwned(profileId: string, chatId: string, data: Prisma.ChatUpdateManyMutationInput) {
   const { count } = await prisma.chat.updateMany({ where: { id: chatId, profileId, deletedAt: null }, data });
   if (count === 0) throw new ChatError("chat_not_found");

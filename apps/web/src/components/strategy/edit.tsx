@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { normalizePercents, type Strategy as StrategyInput } from "@brandloop/ai";
+import { normalizePercents } from "@brandloop/ai/constants";
+import type { Strategy as StrategyInput } from "@brandloop/ai";
 import { cn } from "@brandloop/ui";
 import { saveStrategyAction } from "@/app/(app)/actions";
 

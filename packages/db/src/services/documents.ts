@@ -173,32 +173,48 @@ export const POSTS_PAGE_SIZE = 200;
  * The profile's posts, last edited first. Every post opens in its editor at `/posts/<id>`, so a post whose chat was
  * deleted stays listed (with a null `chatId`).
  */
-export async function listPosts(profileId: string, opts: { limit?: number } = {}): Promise<{ posts: PostSummary[]; total: number }> {
+export async function listPosts(
+  profileId: string,
+  /** `textMax` keeps only the first N characters of each post's text (the Posts screen only renders an excerpt). */
+  opts: { limit?: number; textMax?: number } = {},
+): Promise<{ posts: PostSummary[]; total: number }> {
   const limit = Math.min(Math.max(opts.limit ?? POSTS_PAGE_SIZE, 1), 500);
-  const where = { profileId, deletedAt: null };
+  const textMax = Math.max(Math.floor(opts.textMax ?? 1_000_000), 0);
+  // One joined read of the rows and the current version's text, instead of a second query keyed by the rows.
   const [rows, total] = await Promise.all([
-    prisma.document.findMany({
-      where,
-      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-      take: limit,
-      select: { id: true, title: true, status: true, version: true, revision: true, createdAt: true, updatedAt: true, chat: { select: { id: true, deletedAt: true } } },
-    }),
-    prisma.document.count({ where }),
+    prisma.$queryRaw<
+      {
+        id: string;
+        title: string;
+        status: "DRAFT";
+        version: number;
+        revision: number;
+        createdAt: Date;
+        updatedAt: Date;
+        chatId: string | null;
+        chatDeletedAt: Date | null;
+        text: string | null;
+      }[]
+    >(Prisma.sql`
+      SELECT d."id", d."title", d."status"::text AS "status", d."version", d."revision", d."createdAt", d."updatedAt",
+             c."id" AS "chatId", c."deletedAt" AS "chatDeletedAt", left(v."text", ${textMax}) AS "text"
+      FROM "Document" d
+      LEFT JOIN "Chat" c ON c."documentId" = d."id"
+      LEFT JOIN "DocumentVersion" v ON v."documentId" = d."id" AND v."version" = d."version"
+      WHERE d."profileId" = ${profileId} AND d."deletedAt" IS NULL
+      ORDER BY d."updatedAt" DESC, d."id" DESC
+      LIMIT ${limit}
+    `),
+    prisma.document.count({ where: { profileId, deletedAt: null } }),
   ]);
-  if (rows.length === 0) return { posts: [], total };
-  const versions = await prisma.documentVersion.findMany({
-    where: { OR: rows.map((r) => ({ documentId: r.id, version: r.version })) },
-    select: { documentId: true, text: true },
-  });
-  const textOf = new Map(versions.map((v) => [v.documentId, v.text]));
   const posts = rows.map((r) => ({
     id: r.id,
     title: r.title,
     status: r.status,
     version: r.revision,
     currentVersion: r.version,
-    text: textOf.get(r.id) ?? "",
-    chatId: r.chat && !r.chat.deletedAt ? r.chat.id : null,
+    text: r.text ?? "",
+    chatId: r.chatId && !r.chatDeletedAt ? r.chatId : null,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   }));

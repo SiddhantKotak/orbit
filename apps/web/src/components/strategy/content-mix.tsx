@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CONTENT_TYPES, normalizePercents } from "@brandloop/ai";
+import { CONTENT_TYPES, normalizePercents } from "@brandloop/ai/constants";
 import { CountUp, cn } from "@brandloop/ui";
 import { NumberField, Section, useStrategy } from "./edit";
 

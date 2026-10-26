@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDocument, getSelectedVoice, listMessages, listVoices } from "@brandloop/db";
 import type { ChatUIMessage } from "@brandloop/agent/client";
-import { PostEditorView } from "@/components/editor/post-editor-view";
+import { PostEditorViewLazy as PostEditorView } from "@/components/editor/post-editor-view-lazy";
 import { getAccount } from "@/lib/account";
 
 export const metadata = { title: "Post" };

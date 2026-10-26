@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/shell/intent-link";
 import { m } from "motion/react";
 import { cn, springLayout } from "@brandloop/ui";
 import { isActive, primaryNav, type NavItem } from "@/lib/nav";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/shell/intent-link";
 import { Ring, cn } from "@brandloop/ui";
 
 export type SprintState =
