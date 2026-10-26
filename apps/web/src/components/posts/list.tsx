@@ -41,7 +41,7 @@ export function List({ posts, now, timeZone, filtered }: { posts: PostRow[]; now
                 <li key={p.id} className="border-b border-line-row last:border-b-0">
                   <Link
                     href={rowHref(p)}
-                    className="orbit-transition grid gap-x-4 gap-y-1.5 px-5 py-4 hover:bg-panel-hover md:grid-cols-[minmax(0,1fr)_88px_64px_120px] md:items-center"
+                    className="orbit-transition grid gap-x-4 gap-y-1.5 px-5 py-4 hover:bg-panel-hover focus-visible:[outline-offset:-2px] md:grid-cols-[minmax(0,1fr)_88px_64px_120px] md:items-center"
                   >
                     <span className="flex min-w-0 flex-col gap-1">
                       <span className="flex min-w-0 items-center gap-2">

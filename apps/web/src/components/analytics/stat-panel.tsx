@@ -38,7 +38,7 @@ export function StatPanel({
         (delta.tone === "soft" ? (
           <span className="inline-flex min-h-7 items-center rounded-pill bg-line px-2.5 text-xs font-medium text-text-soft">{delta.text}</span>
         ) : (
-          <StatusPill tone="mono">{delta.text}</StatusPill>
+          <StatusPill tone="mono" className="max-w-full">{delta.text}</StatusPill>
         ))}
     </div>
   );
