@@ -35,7 +35,7 @@ describe("OptionsPanel", () => {
   });
 
   it("shows the free-input hint only when allowed", () => {
-    expect(html).toContain("Or tell me something else…");
+    expect(html).toContain("Or write or tell Orbit your own answer in the chat below");
     const off = renderToStaticMarkup(<OptionsPanel panel={{ ...panel, allowFreeInput: false }} onPick={() => {}} onClose={() => {}} />);
     expect(off).not.toContain("data-options-hint");
   });
