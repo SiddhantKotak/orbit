@@ -6308,5 +6308,432 @@
       "challenge-response",
       "personal"
     ]
+  },
+  {
+    "slug": "edu-one-thing",
+    "type": "POST",
+    "category": "educational",
+    "title": "One thing to know",
+    "skeleton": "[Claim about topic].\n\n[Why most people miss it].\n\n[The fix in one line].",
+    "beats": [
+      "[Claim about topic].",
+      "[Why most people miss it].",
+      "[The fix in one line]."
+    ],
+    "why": "One idea, easy to repeat.",
+    "needs": [],
+    "tags": [
+      "educational"
+    ]
+  },
+  {
+    "slug": "edu-three-steps",
+    "type": "POST",
+    "category": "educational",
+    "title": "Three steps",
+    "skeleton": "How to [result]:\n1. [Step]\n2. [Step]\n3. [Step]\n\n[What to expect].",
+    "beats": [
+      "How to [result]: / 1. [Step] / 2. [Step] / 3. [Step]",
+      "[What to expect]."
+    ],
+    "why": "Steps are easy to save.",
+    "needs": [],
+    "tags": [
+      "educational"
+    ]
+  },
+  {
+    "slug": "story-moment",
+    "type": "POST",
+    "category": "story",
+    "title": "A moment and its turn",
+    "skeleton": "[Time and place]: [scene].\n\n[What went wrong or surprised].\n\n[What changed].\n\n[Plain takeaway].",
+    "beats": [
+      "[Time and place]: [scene].",
+      "[What went wrong or surprised].",
+      "[What changed].",
+      "[Plain takeaway]."
+    ],
+    "why": "A scene earns attention before the point.",
+    "needs": [
+      "story"
+    ],
+    "tags": [
+      "story"
+    ]
+  },
+  {
+    "slug": "story-conversation",
+    "type": "POST",
+    "category": "story",
+    "title": "A line someone said",
+    "skeleton": "[Person] said: \"[line]\".\n\n[How I reacted].\n\n[What it made me change].",
+    "beats": [
+      "[Person] said: \"[line]\".",
+      "[How I reacted].",
+      "[What it made me change]."
+    ],
+    "why": "Dialogue is concrete.",
+    "needs": [
+      "story"
+    ],
+    "tags": [
+      "story"
+    ]
+  },
+  {
+    "slug": "opinion-flat",
+    "type": "POST",
+    "category": "opinion",
+    "title": "Flat opinion",
+    "skeleton": "[Opinion in one sentence].\n\n[Reason].\n\n[Strongest objection, answered honestly].",
+    "beats": [
+      "[Opinion in one sentence].",
+      "[Reason].",
+      "[Strongest objection, answered honestly]."
+    ],
+    "why": "A position invites replies.",
+    "needs": [],
+    "tags": [
+      "opinion"
+    ]
+  },
+  {
+    "slug": "opinion-stop",
+    "type": "POST",
+    "category": "opinion",
+    "title": "Stop doing it",
+    "skeleton": "Stop [habit].\n\n[What it really costs].\n\n[What to do instead].",
+    "beats": [
+      "Stop [habit].",
+      "[What it really costs].",
+      "[What to do instead]."
+    ],
+    "why": "A prohibition is a clear promise.",
+    "needs": [],
+    "tags": [
+      "opinion"
+    ]
+  },
+  {
+    "slug": "case-result",
+    "type": "POST",
+    "category": "case-study",
+    "title": "Result and method",
+    "skeleton": "[Result] in [time].\n\nStarting point: [state].\n\nThe move: [what changed].\n\nThe lesson: [rule].",
+    "beats": [
+      "[Result] in [time].",
+      "Starting point: [state].",
+      "The move: [what changed].",
+      "The lesson: [rule]."
+    ],
+    "why": "Proof first, method second.",
+    "needs": [
+      "number"
+    ],
+    "tags": [
+      "case-study"
+    ]
+  },
+  {
+    "slug": "case-before-after",
+    "type": "POST",
+    "category": "case-study",
+    "title": "Before and after",
+    "skeleton": "Before: [state].\nAfter: [state].\n\nThe bridge:\n- [change]\n- [change]",
+    "beats": [
+      "Before: [state]. / After: [state].",
+      "The bridge: / - [change] / - [change]"
+    ],
+    "why": "Contrast is quick to read.",
+    "needs": [
+      "number"
+    ],
+    "tags": [
+      "case-study"
+    ]
+  },
+  {
+    "slug": "fw-named",
+    "type": "POST",
+    "category": "framework",
+    "title": "A named framework",
+    "skeleton": "The [Name] test:\n1. [Question]\n2. [Question]\n3. [Question]\n\n[How to use it].",
+    "beats": [
+      "The [Name] test: / 1. [Question] / 2. [Question] / 3. [Question]",
+      "[How to use it]."
+    ],
+    "why": "A name makes it repeatable.",
+    "needs": [],
+    "tags": [
+      "framework"
+    ]
+  },
+  {
+    "slug": "fw-matrix",
+    "type": "POST",
+    "category": "framework",
+    "title": "Two-by-two",
+    "skeleton": "Sort every [thing] by [axis A] and [axis B].\n\n- [Quadrant]: [action]\n- [Quadrant]: [action]\n\n[What most people get wrong].",
+    "beats": [
+      "Sort every [thing] by [axis A] and [axis B].",
+      "- [Quadrant]: [action] / - [Quadrant]: [action]",
+      "[What most people get wrong]."
+    ],
+    "why": "A simple model organises choices.",
+    "needs": [],
+    "tags": [
+      "framework"
+    ]
+  },
+  {
+    "slug": "list-items",
+    "type": "POST",
+    "category": "listicle",
+    "title": "A list of items",
+    "skeleton": "[Number] [things] that [outcome]:\n1. [Item]\n2. [Item]\n3. [Item]\n\n[Which one to start with].",
+    "beats": [
+      "[Number] [things] that [outcome]: / 1. [Item] / 2. [Item] / 3. [Item]",
+      "[Which one to start with]."
+    ],
+    "why": "Parallel items scan fast.",
+    "needs": [
+      "number"
+    ],
+    "tags": [
+      "listicle"
+    ]
+  },
+  {
+    "slug": "list-mistakes",
+    "type": "POST",
+    "category": "listicle",
+    "title": "Common mistakes",
+    "skeleton": "Mistakes that slow [goal]:\n- [Mistake]\n- [Mistake]\n- [Mistake]\n\n[The fix for the worst one].",
+    "beats": [
+      "Mistakes that slow [goal]: / - [Mistake] / - [Mistake] / - [Mistake]",
+      "[The fix for the worst one]."
+    ],
+    "why": "Mistakes are specific and useful.",
+    "needs": [],
+    "tags": [
+      "listicle"
+    ]
+  },
+  {
+    "slug": "news-take",
+    "type": "POST",
+    "category": "news",
+    "title": "News and what it means",
+    "skeleton": "[News, with date].\n\nWhat it means for [audience]: [implication].\n\nWhat to do this week: [action].",
+    "beats": [
+      "[News, with date].",
+      "What it means for [audience]: [implication].",
+      "What to do this week: [action]."
+    ],
+    "why": "Timely and useful.",
+    "needs": [
+      "news"
+    ],
+    "tags": [
+      "news"
+    ]
+  },
+  {
+    "slug": "news-reaction",
+    "type": "POST",
+    "category": "news",
+    "title": "Reaction",
+    "skeleton": "[News].\n\nMost people will [reaction]. The better move is [move].",
+    "beats": [
+      "[News].",
+      "Most people will [reaction]. The better move is [move]."
+    ],
+    "why": "A take adds value to a headline.",
+    "needs": [
+      "news"
+    ],
+    "tags": [
+      "news"
+    ]
+  },
+  {
+    "slug": "predict-trend",
+    "type": "POST",
+    "category": "prediction",
+    "title": "Where it is heading",
+    "skeleton": "[Thing] will [change].\n\nWhy: [reason].\n\nWhat to do now: [action].",
+    "beats": [
+      "[Thing] will [change].",
+      "Why: [reason].",
+      "What to do now: [action]."
+    ],
+    "why": "A bold, falsifiable view.",
+    "needs": [],
+    "tags": [
+      "prediction"
+    ]
+  },
+  {
+    "slug": "compare-verdict",
+    "type": "POST",
+    "category": "comparison",
+    "title": "A versus B",
+    "skeleton": "[A] versus [B].\n\n[A] wins when [condition].\n[B] wins when [condition].\n\n[Default pick].",
+    "beats": [
+      "[A] versus [B].",
+      "[A] wins when [condition]. / [B] wins when [condition].",
+      "[Default pick]."
+    ],
+    "why": "A verdict saves the reader time.",
+    "needs": [],
+    "tags": [
+      "comparison"
+    ]
+  },
+  {
+    "slug": "lesson-rule",
+    "type": "POST",
+    "category": "lesson",
+    "title": "Mistake to rule",
+    "skeleton": "I [did the thing] for [time].\n\nIt cost [cost].\n\nThe rule I use now: [rule].",
+    "beats": [
+      "I [did the thing] for [time].",
+      "It cost [cost].",
+      "The rule I use now: [rule]."
+    ],
+    "why": "A rule is the takeaway.",
+    "needs": [
+      "story"
+    ],
+    "tags": [
+      "lesson"
+    ]
+  },
+  {
+    "slug": "lesson-surprise",
+    "type": "POST",
+    "category": "lesson",
+    "title": "What surprised me",
+    "skeleton": "I expected [expectation].\n\nWhat happened: [reality].\n\nWhat I would tell anyone else: [advice].",
+    "beats": [
+      "I expected [expectation].",
+      "What happened: [reality].",
+      "What I would tell anyone else: [advice]."
+    ],
+    "why": "Surprise is honest.",
+    "needs": [
+      "story"
+    ],
+    "tags": [
+      "lesson"
+    ]
+  },
+  {
+    "slug": "bts-process",
+    "type": "POST",
+    "category": "behind-the-scenes",
+    "title": "How the work is done",
+    "skeleton": "Here is how we really [do thing]:\n- [Step, including the messy part]\n- [Step]\n\n[Why we do it this way].",
+    "beats": [
+      "Here is how we really [do thing]: / - [Step, including the messy part] / - [Step]",
+      "[Why we do it this way]."
+    ],
+    "why": "Process builds trust.",
+    "needs": [],
+    "tags": [
+      "behind-the-scenes"
+    ]
+  },
+  {
+    "slug": "announce-plain",
+    "type": "POST",
+    "category": "announcement",
+    "title": "Plain announcement",
+    "skeleton": "[Thing] is [state].\n\nFor: [audience].\n\nWhy it exists: [reason].\n\n[How to get it].",
+    "beats": [
+      "[Thing] is [state].",
+      "For: [audience].",
+      "Why it exists: [reason].",
+      "[How to get it]."
+    ],
+    "why": "Clear and quick.",
+    "needs": [
+      "news"
+    ],
+    "tags": [
+      "announcement"
+    ]
+  },
+  {
+    "slug": "engage-question",
+    "type": "POST",
+    "category": "engagement",
+    "title": "A focused question",
+    "skeleton": "[Context in one line].\n\n[A specific question about a decision the reader faces]?",
+    "beats": [
+      "[Context in one line].",
+      "[A specific question about a decision the reader faces]?"
+    ],
+    "why": "Specific questions get specific answers.",
+    "needs": [],
+    "tags": [
+      "engagement"
+    ]
+  },
+  {
+    "slug": "authority-insight",
+    "type": "POST",
+    "category": "authority",
+    "title": "A checkable insight",
+    "skeleton": "[Observation from the author's work].\n\nWhy it matters: [reason].\n\nHow to check it yourself: [method].",
+    "beats": [
+      "[Observation from the author's work].",
+      "Why it matters: [reason].",
+      "How to check it yourself: [method]."
+    ],
+    "why": "Depth through detail.",
+    "needs": [],
+    "tags": [
+      "authority"
+    ]
+  },
+  {
+    "slug": "authority-mistakes-data",
+    "type": "POST",
+    "category": "authority",
+    "title": "What the numbers say",
+    "skeleton": "[Number] [things] looked at.\n\nWhat showed up: [pattern].\n\nWhat to do about it: [action].",
+    "beats": [
+      "[Number] [things] looked at.",
+      "What showed up: [pattern].",
+      "What to do about it: [action]."
+    ],
+    "why": "Numbers carry weight.",
+    "needs": [
+      "number"
+    ],
+    "tags": [
+      "authority"
+    ]
+  },
+  {
+    "slug": "personal-moment",
+    "type": "POST",
+    "category": "personal",
+    "title": "A human moment",
+    "skeleton": "[Small real moment].\n\nWhat it taught me about [work or life].\n\n[One sentence to keep].",
+    "beats": [
+      "[Small real moment].",
+      "What it taught me about [work or life].",
+      "[One sentence to keep]."
+    ],
+    "why": "Shows who the author is.",
+    "needs": [
+      "story"
+    ],
+    "tags": [
+      "personal"
+    ]
   }
 ]

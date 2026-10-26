@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { FORMAT_IDS } from "./writing/format";
 import { LIMITS } from "./limits";
 
 export const ATTACHMENT_MEDIA_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"] as const;
@@ -47,8 +46,8 @@ export const ChatRequestSchema = z.object({
   webSearchEnabled: z.boolean().default(true),
   /** The chat model the user picked; the web route checks it against its allowlist. */
   model: z.string().min(1).max(60).nullish(),
-  /** A framework or template picked in the composer for this message only (Task W8). */
-  selectedFormatId: z.string().min(1).nullable().default(null).refine((id) => id === null || FORMAT_IDS.has(id), "Unknown format."),
+  /** A framework id or a template slug picked in the composer for this message only; an unknown slug is ignored server-side. */
+  selectedFormatId: z.string().min(1).max(200).nullable().default(null),
   documentContext: z.object({ id: z.string().min(1), version: z.number().int().min(1) }).optional(),
   quickLinkKey: z.string().min(1).optional(),
   optionPick: OptionPickSchema.optional(),

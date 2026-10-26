@@ -37,5 +37,5 @@ export {
 export { enforcedChips } from "../writing/rules";
 export { openPanelOf, panelsOf, parseOptionsPanel, type OptionsPanel } from "./options";
 export { hookMeta, parseHookCards, swapOpening, type HookCard } from "./hooks";
-export { CATEGORIES, FRAMEWORKS, TEMPLATES } from "../library";
+export { CATEGORIES, FRAMEWORKS } from "../library";
 export { stripCitations } from "./sanitize";

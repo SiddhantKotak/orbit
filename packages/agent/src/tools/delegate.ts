@@ -1,6 +1,8 @@
+import { getTemplateBySlug } from "@brandloop/db";
 import { tool } from "ai";
 import { z } from "zod";
 import type { TurnContext } from "../context";
+import { FRAMEWORKS } from "../library";
 import { frameData, type DataSource } from "../data";
 import { bannedWordsFromRules, mergeChecks, runDeterministicChecks, runWritingChecks } from "../specialists/checks";
 import { planHasList, renderFormatBlock, selectFormat } from "../writing/format";
@@ -93,7 +95,9 @@ export async function delegateWritingRun(
     // A post that uses research ends with a Sources line, so links in that last block are expected (design §6.1, user decision).
     if (research && research.items.length > 0) grounding.rules.hard.sourcesInPost = true;
     const request = briefFor(input, personal, accepted);
-    const format = selectFormat({ selectedFormatId: ctx.selections.formatId, postType: null, style: grounding.styleProfile, request: input.request });
+    const pinned = ctx.selections.formatId;
+    const template = pinned && !FRAMEWORKS.some((f) => f.id === pinned) ? await getTemplateBySlug(pinned).catch(() => null) : null;
+    const format = selectFormat({ selectedFormatId: pinned, postType: null, style: grounding.styleProfile, request: input.request, template });
     // A new post: there is no open document (see the short-circuit above), so no source revision either.
     const res = await runSpecialist(ctx.ai, "post-writing", {
       request,

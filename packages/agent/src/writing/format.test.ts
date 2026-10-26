@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { FRAMEWORKS, TEMPLATES } from "../library";
+import type { TemplateRow } from "@brandloop/db";
+import { FRAMEWORKS } from "../library";
 import { ChatRequestSchema } from "../types";
 import { lintPost } from "./lint";
-import { FORMAT_IDS, planHasList, renderFormatBlock, selectFormat } from "./format";
+import { planHasList, renderFormatBlock, selectFormat } from "./format";
 import { resolveRules } from "./rules";
 
-const none = { postType: null, style: null, request: "r" };
+const none = { postType: null, style: null, request: "r", template: null };
+const tpl = (slug: string, skeleton: string): TemplateRow =>
+  ({ id: "t1", slug, type: "POST", category: "framework", title: "A named framework", skeleton, beats: [], why: "", needs: [], tags: [], system: true }) as unknown as TemplateRow;
+const NAMED = "The [Name] test:\n1. [Question]\n2. [Question]\n3. [Question]\n\n[How to use it].";
 
 describe("selectFormat", () => {
   it("a picked format wins over everything else", () => {
@@ -14,35 +18,29 @@ describe("selectFormat", () => {
     expect(f.plan).toEqual(FRAMEWORKS.find((x) => x.id === "myth-truth")!.plan);
   });
 
-  it("a picked template becomes a plan with its skeleton", () => {
-    const f = selectFormat({ ...none, selectedFormatId: "fw-named" });
+  it("a pinned template becomes a plan with its skeleton", () => {
+    const f = selectFormat({ ...none, selectedFormatId: "fw-named", template: tpl("fw-named", NAMED) });
+    expect(f).toMatchObject({ id: "fw-named", source: "picked", name: "A named framework" });
     expect(f.skeleton).toContain("[Name]");
     expect(f.plan.map((b) => b.kind)).toEqual(["numbered", "prose"]);
   });
 
-  it("framework and how-to posts get a list; stories do not; short posts stay within four blocks", () => {
-    expect(planHasList(selectFormat({ ...none, selectedFormatId: null, postType: "framework" }).plan)).toBe(true);
-    expect(planHasList(selectFormat({ ...none, selectedFormatId: null, postType: "how-to" }).plan)).toBe(true);
-    expect(planHasList(selectFormat({ ...none, selectedFormatId: null, postType: "story" }).plan)).toBe(false);
-    expect(selectFormat({ ...none, selectedFormatId: null, postType: "short" }).plan.length).toBeLessThanOrEqual(4);
+  it("an auto-picked template reports source auto", () => {
+    expect(selectFormat({ ...none, selectedFormatId: null, template: tpl("fw-named", NAMED) }).source).toBe("auto");
   });
 
-  it("the style's list share breaks ties when the type is unknown", () => {
-    const style = { layout: { listPosts: { bullet: 0, numbered: 80 } } } as never;
-    const f = selectFormat({ ...none, selectedFormatId: null, style });
-    expect(f.source).toBe("style");
-    expect(f.plan.find((b) => b.kind === "numbered")).toBeTruthy();
+  it("an unknown pinned id with no template is ignored and the post type decides", () => {
+    const f = selectFormat({ ...none, selectedFormatId: "gone", postType: "short" });
+    expect(f).toMatchObject({ id: null, source: "post-type" });
   });
 
-  it("knows every framework and template id, and renders a block of at most 1,200 characters", () => {
-    expect(FORMAT_IDS.size).toBe(FRAMEWORKS.length + TEMPLATES.length);
-    expect(FORMAT_IDS.has("nope")).toBe(false);
-    for (const id of FORMAT_IDS) expect(renderFormatBlock(selectFormat({ ...none, selectedFormatId: id })).length).toBeLessThanOrEqual(1_200);
+  it("every framework renders a block of at most 1,200 characters", () => {
+    for (const f of FRAMEWORKS) expect(renderFormatBlock(selectFormat({ ...none, selectedFormatId: f.id })).length).toBeLessThanOrEqual(1_200);
+    expect(renderFormatBlock(selectFormat({ ...none, selectedFormatId: "x", template: tpl("x", NAMED) })).length).toBeLessThanOrEqual(1_200);
   });
 
   it("an unfilled template slot fails the placeholders check", () => {
-    const t = TEMPLATES.find((x) => x.id === "edu-one-thing")!;
-    const v = lintPost(t.skeleton, resolveRules({ userRulesMarkdown: "", style: null, turn: {} }), { postType: null, groundingText: null, researchDates: null, personalDetails: "allowed" });
+    const v = lintPost("[Claim about topic].\n\n[Why most people miss it].", resolveRules({ userRulesMarkdown: "", style: null, turn: {} }), { postType: null, groundingText: null, researchDates: null, personalDetails: "allowed" });
     expect(v.violations.some((x) => x.id === "placeholders" && x.level === "hard")).toBe(true);
   });
 
@@ -53,10 +51,10 @@ describe("selectFormat", () => {
     expect(lintPost("Hook.\n\n- a\n- b", rules, ctx).violations.find((v) => v.id === "list-expected")).toBeUndefined();
   });
 
-  it("the chat request accepts a known format id and rejects an unknown one", () => {
+  it("the chat request accepts a known format id and accepts any slug (unknown ones are ignored server-side)", () => {
     const base = { id: crypto.randomUUID(), runId: crypto.randomUUID(), message: { id: "m", role: "user", parts: [{ type: "text", text: "hi" }] } };
     expect(ChatRequestSchema.safeParse({ ...base, selectedFormatId: "myth-truth" }).success).toBe(true);
     expect(ChatRequestSchema.safeParse(base).data?.selectedFormatId).toBeNull();
-    expect(ChatRequestSchema.safeParse({ ...base, selectedFormatId: "not-a-format" }).success).toBe(false);
+    expect(ChatRequestSchema.safeParse({ ...base, selectedFormatId: "not-a-format" }).success).toBe(true);
   });
 });
