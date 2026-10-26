@@ -1,4 +1,4 @@
-/** Formatting metrics over saved drafts: the WQ §6 table in TypeScript. No AI calls; reads transcripts and the Kleo lab file. */
+/** Formatting metrics over saved drafts: the WQ §6 table in TypeScript. No AI calls; reads saved transcripts (and, for the local comparison only, the third-party lab file). */
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { measurePost, type PostMetrics } from "../src/writing/measure";
@@ -50,12 +50,12 @@ export const METRICS_START = "<!-- eval:metrics:start -->";
 export const METRICS_END = "<!-- eval:metrics:end -->";
 
 const METRICS_INTRO =
-  "## Formatting metrics\n\nComputed by `measurePost` (packages/agent/src/writing/measure.ts) over Kleo's `post` fences (K) and Orbit's saved drafts (O<run><prompt>); " +
+  "## Formatting metrics\n\nComputed by `measurePost` (packages/agent/src/writing/measure.ts) over Orbit's saved drafts (O<run><prompt>); " +
   "regenerate with `pnpm --filter @brandloop/agent eval --metrics` (no AI calls). Mobile wrap 50 characters per line; fold 210 characters.";
 
 /** Replaces (or, the first time, appends after the generated block) the metrics section; the rest of the report is untouched. */
-export function spliceMetrics(existing: string, table: string): string {
-  const block = `${METRICS_START}\n${METRICS_INTRO}\n\n${table}\n${METRICS_END}`;
+export function spliceMetrics(existing: string, table: string, intro: string = METRICS_INTRO): string {
+  const block = `${METRICS_START}\n${intro}\n\n${table}\n${METRICS_END}`;
   if (existing.includes(METRICS_START) && existing.includes(METRICS_END)) {
     const start = existing.indexOf(METRICS_START);
     const end = existing.indexOf(METRICS_END) + METRICS_END.length;

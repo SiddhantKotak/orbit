@@ -56,13 +56,13 @@ export function transcriptMarkdown(run: RunRecord): string {
       for (const d of DIMENSIONS) out.push(`- ${DIMENSION_LABELS[d]}: ${t.verdict.scores[d].score ?? "n/a"} — ${t.verdict.scores[d].note}`);
       for (const fl of t.verdict.failures) out.push(`- FAIL [${fl.dimension}] "${quote(fl.excerpt)}": ${fl.problem}`);
     }
-    if (t.pairwise) out.push("", `**Pairwise vs Kleo** (${t.pairwise.order}): ${t.pairwise.winner} — ${t.pairwise.result.reason}`);
+    if (t.pairwise) out.push("", `**Pairwise vs reference** (${t.pairwise.order}): ${t.pairwise.winner} — ${t.pairwise.result.reason}`);
     out.push("");
   }
   return out.join("\n");
 }
 
-/** The generated block of docs/research/orbit-quality-eval.md, from every run so far (oldest first). */
+/** The generated block of docs/research/orbit-quality-eval.md, from every run so far (oldest first). Orbit-only: the repo is public. */
 export function reportMarkdown(runs: RunRecord[]): string {
   if (runs.length === 0) return "No eval runs yet.";
   const latest = runs.at(-1)!;
@@ -98,21 +98,7 @@ export function reportMarkdown(runs: RunRecord[]): string {
   if (!any) out.push("None.");
   out.push("");
 
-  out.push("## Orbit vs Kleo (blind pairwise)", "");
-  const withPairs = runs.filter((r) => r.pairwise);
-  if (withPairs.length === 0) {
-    out.push("Not run: the Kleo benchmark replies (.recon/benchmark/kleo-replies.md) were not available.");
-  } else {
-    out.push(`| Run | Orbit wins | Kleo wins | Ties | Per prompt |`, "|---|---|---|---|---|");
-    for (const r of withPairs) {
-      const per = r.turns.map((t) => `${t.promptId}: ${t.pairwise?.winner ?? "–"}`).join(", ");
-      out.push(`| ${r.run} | ${r.pairwise!.orbit} | ${r.pairwise!.kleo} | ${r.pairwise!.tie} | ${per} |`);
-    }
-    out.push("", `Reasons (run ${withPairs.at(-1)!.run}):`, "");
-    for (const t of withPairs.at(-1)!.turns) if (t.pairwise) out.push(`- (${t.promptId}) ${t.pairwise.winner}: ${t.pairwise.result.reason}`);
-  }
-  out.push("");
-  out.push("Raw transcripts: `.recon/benchmark/orbit-run-<n>.md` (with `orbit-run-<n>.json`).");
+  out.push("Raw transcripts: local benchmark transcripts (`orbit-run-<n>.md` with `orbit-run-<n>.json`).");
   return out.join("\n");
 }
 
@@ -126,4 +112,24 @@ export function spliceGenerated(existing: string | null, generated: string, head
   const start = existing.indexOf(GENERATED_START);
   const end = existing.indexOf(GENERATED_END) + GENERATED_END.length;
   return `${existing.slice(0, start)}${block}${existing.slice(end)}`;
+}
+
+/** The local-only comparison report (never committed): the blind pairwise against the third-party reference replies. */
+export function comparisonMarkdown(runs: RunRecord[]): string {
+  const out: string[] = ["# Orbit vs Kleo comparison (local, not for the repo)", ""];
+  out.push("## Blind pairwise", "");
+  const withPairs = runs.filter((r) => r.pairwise);
+  if (withPairs.length === 0) {
+    out.push("Not run: the Kleo benchmark replies (.recon/benchmark/kleo-replies.md) were not available.");
+  } else {
+    out.push(`| Run | Orbit wins | Kleo wins | Ties | Per prompt |`, "|---|---|---|---|---|");
+    for (const r of withPairs) {
+      const per = r.turns.map((t) => `${t.promptId}: ${t.pairwise?.winner ?? "–"}`).join(", ");
+      out.push(`| ${r.run} | ${r.pairwise!.orbit} | ${r.pairwise!.kleo} | ${r.pairwise!.tie} | ${per} |`);
+    }
+    out.push("", `Reasons (run ${withPairs.at(-1)!.run}):`, "");
+    for (const t of withPairs.at(-1)!.turns) if (t.pairwise) out.push(`- (${t.promptId}) ${t.pairwise.winner}: ${t.pairwise.result.reason}`);
+  }
+  out.push("");
+  return out.join("\n");
 }
