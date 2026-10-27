@@ -44,7 +44,7 @@ test("new profile: gated to setup, resumes on refresh, confirms a strategy, land
   // Step 1 is required.
   await page.getByLabel("Your name").fill("");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("alert")).toContainText("Tell us your name");
+  await expect(page.locator("main [role=alert]")).toContainText("Tell us your name");
   await page.getByLabel("Your name").fill("Ona Reyes");
   await page.getByLabel("Role or title").fill("Design lead");
   await page.getByLabel("Company or industry").fill("Fintech");
@@ -63,7 +63,7 @@ test("new profile: gated to setup, resumes on refresh, confirms a strategy, land
 
   // Step 2 needs a goal.
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("alert")).toContainText("Choose what you want LinkedIn to do");
+  await expect(page.locator("main [role=alert]")).toContainText("Choose what you want LinkedIn to do");
   await page.getByRole("radio", { name: "Win clients" }).click();
   await page.getByRole("button", { name: "Founders" }).click();
   await page.getByLabel("What do you offer?").fill("Design audits for fintech teams");
