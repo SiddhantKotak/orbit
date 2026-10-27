@@ -27,7 +27,7 @@ describe("usage limiter", () => {
 
   it("fails open and logs when the store throws", async () => {
     const onError = vi.fn();
-    const store = { incr: async () => Promise.reject(new Error("down")), get: async () => Promise.reject(new Error("down")) };
+    const store = { incr: async () => Promise.reject(new Error("down")), get: async () => Promise.reject(new Error("down")), addEvent: async () => Promise.reject(new Error("down")), events: async () => Promise.reject(new Error("down")) };
     const lim = createUsageLimiter({ store, onError });
     expect((await lim.take("chat", "p", { limit: 1, windowSec: 60 })).ok).toBe(true);
     expect((await lim.checkBudget("chat", "p", 1)).ok).toBe(true);
@@ -59,7 +59,7 @@ describe("usage limiter", () => {
 });
 
 describe("production fail-closed", () => {
-  const down = { incr: async () => Promise.reject(new Error("down")), get: async () => Promise.reject(new Error("down")) };
+  const down = { incr: async () => Promise.reject(new Error("down")), get: async () => Promise.reject(new Error("down")), addEvent: async () => Promise.reject(new Error("down")), events: async () => Promise.reject(new Error("down")) };
 
   it("budget and daily limits deny when the store errors, rate limits stay open", async () => {
     const lim = createUsageLimiter({ store: down, failClosed: true, onError: () => {} });
@@ -96,5 +96,35 @@ describe("moderation client", () => {
     expect((await createModerator({ apiKey: "" })("x")).flagged).toBe(false);
     expect(err).toHaveBeenCalledTimes(3);
     err.mockRestore();
+  });
+});
+
+describe("event log (sliding windows)", () => {
+  it("memoryStore keeps timestamps, filters by since and expires", async () => {
+    let t = 1_000_000;
+    const s = memoryStore(() => t);
+    await s.addEvent("k", 1000, 10);
+    await s.addEvent("k", 3000, 10);
+    await s.addEvent("k", 2000, 10);
+    expect(await s.events("k", 0)).toEqual([1000, 2000, 3000]);
+    expect(await s.events("k", 2000)).toEqual([2000, 3000]);
+    t += 11_000;
+    expect(await s.events("k", 0)).toEqual([]);
+  });
+
+  it("upstashStore sends ZADD/EXPIRE and ZREMRANGEBYSCORE/ZRANGE and parses scores", async () => {
+    const sent: unknown[][][] = [];
+    const fetchImpl = async (_u: string, init: { body: string }) => {
+      const cmds = JSON.parse(init.body) as unknown[][];
+      sent.push(cmds);
+      return { ok: true, json: async () => (cmds[0]![0] === "ZADD" ? [{ result: 1 }, { result: 1 }] : [{ result: 0 }, { result: ["a", "3000", "b", "1000"] }]) };
+    };
+    const s = upstashStore({ url: "https://r.example", token: "tok", fetchImpl });
+    await s.addEvent("pub:rate:p1", 5000, 90);
+    expect(sent[0]![0]![0]).toBe("ZADD");
+    expect(sent[0]![0]!.slice(1, 3)).toEqual(["pub:rate:p1", 5000]);
+    expect(sent[0]![1]).toEqual(["EXPIRE", "pub:rate:p1", 90]);
+    expect(await s.events("pub:rate:p1", 2000)).toEqual([1000, 3000]);
+    expect(sent[1]).toEqual([["ZREMRANGEBYSCORE", "pub:rate:p1", "-inf", "(2000"], ["ZRANGE", "pub:rate:p1", 0, -1, "WITHSCORES"]]);
   });
 });

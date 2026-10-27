@@ -7,10 +7,15 @@ export type CounterStore = {
   /** Adds `by` to the counter (creating it with a TTL) and returns the new value. */
   incr(key: string, by: number, ttlSec: number): Promise<number>;
   get(key: string): Promise<number>;
+  /** Records a timestamped event (ms) under `key`; the whole key expires `ttlSec` after the latest add. */
+  addEvent(key: string, atMs: number, ttlSec: number): Promise<void>;
+  /** Event timestamps (ms) under `key` that are >= `sinceMs`, ascending. Older ones may be dropped. */
+  events(key: string, sinceMs: number): Promise<number[]>;
 };
 
 export function memoryStore(now: () => number = Date.now): CounterStore {
   const map = new Map<string, { value: number; expires: number }>();
+  const log = new Map<string, { times: number[]; expires: number }>();
   const live = (key: string) => {
     const e = map.get(key);
     if (e && e.expires <= now()) map.delete(key);
@@ -25,6 +30,18 @@ export function memoryStore(now: () => number = Date.now): CounterStore {
     },
     async get(key) {
       return live(key)?.value ?? 0;
+    },
+    async addEvent(key, atMs, ttlSec) {
+      const e = log.get(key);
+      const times = e && e.expires > now() ? e.times : [];
+      times.push(atMs);
+      log.set(key, { times, expires: now() + ttlSec * 1000 });
+    },
+    async events(key, sinceMs) {
+      const e = log.get(key);
+      if (!e || e.expires <= now()) return [];
+      e.times = e.times.filter((t) => t >= sinceMs);
+      return [...e.times].sort((a, b) => a - b);
     },
   };
 }
@@ -51,6 +68,17 @@ export function upstashStore({ url, token, fetchImpl }: { url: string; token: st
       const out = await call([["GET", key]]);
       return Number(out[0]?.result ?? 0) || 0;
     },
+    async addEvent(key, atMs, ttlSec) {
+      // Sorted set scored by time; the member carries a random suffix so same-millisecond events stay distinct.
+      await call([["ZADD", key, atMs, `${atMs}:${Math.random().toString(36).slice(2, 10)}`], ["EXPIRE", key, ttlSec]]);
+    },
+    async events(key, sinceMs) {
+      const out = await call([["ZREMRANGEBYSCORE", key, "-inf", `(${sinceMs}`], ["ZRANGE", key, 0, -1, "WITHSCORES"]]);
+      const flat = (out[1]?.result as string[] | undefined) ?? [];
+      const times: number[] = [];
+      for (let i = 1; i < flat.length; i += 2) times.push(Number(flat[i]));
+      return times.sort((a, b) => a - b);
+    },
   };
 }
 
@@ -65,6 +93,8 @@ export function isProduction(env: Record<string, string | undefined> = process.e
 const unconfigured: CounterStore = {
   incr: () => Promise.reject(new Error("UPSTASH_REDIS_REST_URL/TOKEN are not set")),
   get: () => Promise.reject(new Error("UPSTASH_REDIS_REST_URL/TOKEN are not set")),
+  addEvent: () => Promise.reject(new Error("UPSTASH_REDIS_REST_URL/TOKEN are not set")),
+  events: () => Promise.reject(new Error("UPSTASH_REDIS_REST_URL/TOKEN are not set")),
 };
 
 /** Upstash when both REST variables are set (and not under vitest), else one in-memory store per process. */
