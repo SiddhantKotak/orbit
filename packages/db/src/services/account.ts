@@ -138,7 +138,8 @@ export async function createProfile(userId: string, input: { name: string }) {
   if (!name) throw new AccountError("Profile name is required");
   const membership = await primaryMembership(userId);
   return prisma.profile.create({
-    data: { teamId: membership.teamId, ownerUserId: userId, name },
+    // Onboarding is for a person's first profile only; later profiles open straight into the app.
+    data: { teamId: membership.teamId, ownerUserId: userId, name, onboardingCompleted: true },
   });
 }
 

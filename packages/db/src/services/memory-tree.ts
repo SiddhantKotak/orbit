@@ -14,6 +14,7 @@ export const SECTION_META: Record<string, SectionMeta> = {
     description: "Durable personal facts, history, and interests",
   },
   "identity/story": { title: "Story", description: "The user's background story" },
+  "identity/offers": { title: "Offers", description: "What the user sells or offers, and to whom" },
   "writing/rules": {
     title: "Writing rules",
     description: "The user's explicit writing do's, don'ts, and banned words",
@@ -36,6 +37,7 @@ const AGENT_WRITABLE_FIXED = new Set([
   "identity/about",
   "identity/personal",
   "identity/story",
+  "identity/offers",
   "writing/rules",
   "voice/style",
 ]);
