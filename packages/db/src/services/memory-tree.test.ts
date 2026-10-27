@@ -17,6 +17,7 @@ describe("section metadata", () => {
   it("covers the fixed sections", () => {
     expect(Object.keys(SECTION_META).sort()).toEqual([
       "identity/about",
+      "identity/offers",
       "identity/personal",
       "identity/story",
       "strategy/themes",

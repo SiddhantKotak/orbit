@@ -519,6 +519,39 @@ export const EMOJI_REPAIRED_BLOCKS: WriterBlock[] = [
 ];
 const ROUTES: { match: RegExp; output: unknown }[] = [
   {
+    // The onboarding strategy draft (db `draftStrategy`): a fixed, valid strategy so offline runs spend no tokens.
+    match: /Return the goal and why, positioning and why, a tagline/,
+    output: {
+      goal: "build_authority",
+      goalWhy: "You want to be known for your expertise.",
+      positioning: "The practitioner who explains the hard parts plainly",
+      positioningWhy: "Plain explanations stand out in a feed of jargon.",
+      tagline: "Clear thinking, shared weekly",
+      expertise: "Your core craft",
+      expertiseWhy: "It is what you do every day.",
+      contentMix: [
+        { type: "educational", percent: 40 },
+        { type: "personal", percent: 30 },
+        { type: "authority", percent: 20 },
+        { type: "sales", percent: 10 },
+      ],
+      audienceBalance: [
+        { level: "broad", percent: 30, note: "Reach beyond your network." },
+        { level: "narrow", percent: 40, note: "Build trust with your field." },
+        { level: "niche", percent: 30, note: "Speak to the people you want to work with." },
+      ],
+      contentFormats: [
+        { format: "text", perWeek: 3, note: "Your core format." },
+        { format: "carousel", perWeek: 1, note: "For frameworks." },
+      ],
+      recurringSeries: [
+        { name: "Lessons learned", weekday: "mon", description: "One thing you learned the hard way." },
+        { name: "How it works", weekday: "wed", description: "Explain one idea from your work." },
+        { name: "Behind the work", weekday: "fri", description: "Show how a result came together." },
+      ],
+    },
+  },
+  {
     // A format picked in the composer (Task W8): the scripted writer follows a plan with a numbered list.
     match: /The user picked this format \("Myth, truth, proof"\)/,
     output: {

@@ -5,7 +5,9 @@ import { greetingFor } from "@/lib/greeting";
 import { promptParam } from "@/lib/prompt-param";
 import { latestChatOf, summarizeStrategy } from "@/lib/home-summary";
 import { ownTemplateBySlug } from "@/lib/templates-api";
-import { getSelectedVoice, getLatestChat, getStrategy, listVoices } from "@brandloop/db";
+import { getChecklist, getSelectedVoice, getLatestChat, getStrategy, listVoices } from "@brandloop/db";
+import { FirstIdeas } from "@/components/onboarding/first-ideas";
+import { GettingStarted } from "@/components/onboarding/getting-started";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await searchParams;
@@ -16,13 +18,19 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const now = new Date();
   const slug = params.template;
   const template = profile && typeof slug === "string" ? await ownTemplateBySlug(profile.id, slug) : null;
-  const [voices, selected, strategy, latest] = profile
-    ? await Promise.all([listVoices(profile.id), getSelectedVoice(profile.id), getStrategy(profile.id), getLatestChat(profile.id)])
-    : [[], null, null, null];
+  const [voices, selected, strategy, latest, checklist] = profile
+    ? await Promise.all([listVoices(profile.id), getSelectedVoice(profile.id), getStrategy(profile.id), getLatestChat(profile.id), getChecklist(profile.id)])
+    : [[], null, null, null, null];
   return (
     <HomeChat
       greeting={greetingFor(now, timeZone)}
-      cards={<HomeCards strategy={summarizeStrategy(strategy, now, timeZone)} latestChat={latestChatOf(latest ? [latest] : [])} now={now} />}
+      cards={
+        <>
+          {params.welcome === "1" && <FirstIdeas />}
+          {checklist && <GettingStarted items={checklist} />}
+          <HomeCards strategy={summarizeStrategy(strategy, now, timeZone)} latestChat={latestChatOf(latest ? [latest] : [])} now={now} />
+        </>
+      }
       voices={voices.map((v) => ({ id: v.id, name: v.name, tagline: v.tagline, own: v.kind === "OWN" }))}
       selectedVoiceId={selected?.id ?? null}
       initialText={initialText}

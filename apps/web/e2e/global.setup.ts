@@ -56,7 +56,11 @@ setup("test user: account, default profile, no leftovers", async ({ page }) => {
 
   await page.goto("/sign-in");
   await clerk.signIn({ page, emailAddress: email! });
-  // First visit provisions the account and its default profile.
+  // First visit provisions the account and its default profile. A fresh profile starts un-onboarded and the app sends it
+  // to /onboarding, so the test user's profiles are marked onboarded through the dev route before the next visit.
+  await page.goto("/");
+  const ready = await page.request.post("/api/dev/onboarding", { data: { mode: "ready" } });
+  expect(ready.ok(), `POST /api/dev/onboarding ready: ${ready.status()}`).toBe(true);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /What are we putting out there\?/ })).toBeVisible({ timeout: 60_000 });
 
