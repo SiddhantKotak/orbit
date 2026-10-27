@@ -104,7 +104,9 @@ export function OnboardingFlow({
   useEffect(() => {
     if (tzEdited.current) return;
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (detected) setTimezone(detected);
+    // After hydration, so the server and first client render agree.
+    const t = setTimeout(() => detected && !tzEdited.current && setTimezone(detected), 0);
+    return () => clearTimeout(t);
   }, []);
 
   // Step 2
@@ -163,7 +165,9 @@ export function OnboardingFlow({
   }
 
   useEffect(() => {
-    if (step === 5 && !draft && !drafting && !error) void makeDraft();
+    if (step !== 5 || draft || drafting || error) return;
+    const t = setTimeout(() => void makeDraft(), 0);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
