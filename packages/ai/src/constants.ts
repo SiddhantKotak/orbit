@@ -10,6 +10,15 @@ export const GOALS: Record<Goal, { label: string; tagline: string }> = {
   grow_audience: { label: "Grow audience", tagline: "Reach more people, grow your following" },
 };
 
+export const ONBOARDING_GOALS = {
+  clients: { label: "Win clients", strategyGoal: "get_customers" as Goal },
+  hire: { label: "Hire great people", strategyGoal: "build_authority" as Goal },
+  authority: { label: "Build authority", strategyGoal: "build_authority" as Goal },
+  job: { label: "Find a job", strategyGoal: "build_authority" as Goal },
+  audience: { label: "Grow my audience", strategyGoal: "grow_audience" as Goal },
+} as const;
+export type OnboardingGoal = keyof typeof ONBOARDING_GOALS;
+
 export const CONTENT_TYPES: Record<
   ContentType,
   { label: string; description: string; examples: string[] }

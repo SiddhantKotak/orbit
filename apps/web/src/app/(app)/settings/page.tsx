@@ -1,6 +1,7 @@
 import { EmptyState, PageBody, PageHeader } from "@/components/page";
 import { AiModelSetting } from "@/components/settings/ai-model-setting";
 import { AccountSettingsForm } from "@/components/settings/account-settings-form";
+import { SetUpAgain } from "@/components/settings/set-up-again";
 import { getAccount } from "@/lib/account";
 
 export const metadata = { title: "Manage account" };
@@ -20,6 +21,9 @@ export default async function AccountSettingsPage() {
             />
             <div className="max-w-[760px]">
               <AiModelSetting />
+            </div>
+            <div className="mt-3">
+              <SetUpAgain />
             </div>
           </>
         ) : (

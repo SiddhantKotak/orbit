@@ -1,6 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma } from "../generated/prisma/client";
-import type { Strategy as StrategyInput } from "@brandloop/ai";
+import { ONBOARDING_GOALS, type OnboardingGoal, type Strategy as StrategyInput } from "@brandloop/ai";
 import { AccountError, assertProfileAccess } from "./account";
 import { memoryLines, withMemoryRetry, writeSection, MEMORY_KEYS } from "./memory";
 import { saveStrategy } from "./strategy";
@@ -9,14 +9,7 @@ import { selectVoice } from "./voice";
 /** Steps of the first-run flow. Only step 1 is required; 2 to 5 can be skipped. */
 export const ONBOARDING_STEPS = 5;
 
-export const ONBOARDING_GOALS = {
-  clients: { label: "Win clients", strategyGoal: "get_customers" },
-  hire: { label: "Hire great people", strategyGoal: "build_authority" },
-  authority: { label: "Build authority", strategyGoal: "build_authority" },
-  job: { label: "Find a job", strategyGoal: "build_authority" },
-  audience: { label: "Grow my audience", strategyGoal: "grow_audience" },
-} as const;
-export type OnboardingGoal = keyof typeof ONBOARDING_GOALS;
+export { ONBOARDING_GOALS, type OnboardingGoal };
 
 export type PostLength = "short" | "medium" | "long";
 
